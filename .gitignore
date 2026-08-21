@@ -1,0 +1,9 @@
+*.venv/
+__pycache__/
+*.py[cod]
+.idea/
+.vscode/
+.env
+Guessing_game/models
+Guessing_game/data/characters.csv
+

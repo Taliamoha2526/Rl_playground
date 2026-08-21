@@ -1,0 +1,318 @@
+Guessing Game: Learning to Search Through Questions
+Where the idea came from
+
+The idea for this project started from a fairly random observation.
+
+I had been self-learning Reinforcement Learning and thinking about how to connect some of the concepts I was studying to something more intuitive. Around the same time, I had been seeing YouTubers play the recent Guess Who? game where one person thinks of a character and everyone else has to figure out who it is by asking questions.
+
+What interested me was the way people actually played.
+
+Someone asks a question, immediately eliminates a group of possible characters, and moves on. Sometimes they make a surprisingly early guess. Sometimes they ask a question that turns out not to help very much. Sometimes they seem to be following a strategy, and sometimes they appear to be guessing almost randomly.
+
+That made me wonder:
+
+What would it look like to turn this process into an environment for an agent?
+
+Could an agent learn which questions are useful? How would it reduce a large pool of possibilities? When should it continue searching, and when should it guess?
+
+I did not start this project with a complete RL environment in mind. Initially, I simply wanted to build the game and experiment with how an algorithm could play it.
+
+That simple idea eventually grew into something much larger.
+
+The Game
+
+The game is an automated, high-cardinality version of Guess Who?
+
+Instead of a small board of characters, the environment works with a dataset containing thousands of candidates. Each character has a collection of attributes such as:
+
+Region
+Industry
+Age
+Hair color
+Sex
+
+One character is selected as the hidden target.
+
+The agent's job is to identify that character by asking binary questions:
+
+Is Region = 'Europe'?
+
+The opponent responds:
+
+Yes
+
+or:
+
+No
+
+The search space is then updated based on that answer.
+
+For example:
+
+Initial candidates: 1,000
+
+
+Is Region = 'Europe'?
+Yes
+
+
+Remaining candidates: 158
+
+
+Is Age = 'senior'?
+Yes
+
+
+Remaining candidates: 18
+
+
+Is Hair color = 'blonde'?
+No
+
+
+Remaining candidates: 11
+
+The process continues until the agent identifies the target or reaches the episode's step limit.
+
+At its core, the problem is a sequential search task:
+
+Candidates→Question→Answer→Updated search space→Next decision
+
+The interesting part is deciding what that next decision should be.
+
+From a Game to an Experiment
+
+My first approach was not Reinforcement Learning.
+
+I began by experimenting with an entropy-based agent. The basic idea was that a feature with a more diverse distribution might contain more information and therefore be a better feature to ask about.
+
+As I increased the complexity of the search space, however, I started noticing that the behaviour of the algorithm was not always what I expected.
+
+That raised more questions.
+
+Was I measuring the right kind of entropy?
+
+Is a feature with high categorical entropy necessarily useful when the actual action is a binary question?
+
+How does feature cardinality affect the strategy?
+
+What makes one question better than another?
+
+Those questions eventually led to multiple agents and a benchmarking system, including:
+
+Random Agent
+Entropy Agent
+Binary Information Gain Agent
+Epsilon-Information Gain Agent
+DQN Agent
+
+The project gradually shifted from "Can I make an algorithm play Guess Who?" toward:
+
+How do different decision-making strategies behave when the same search environment changes?
+
+The current project is therefore both a game and an experimentation environment.
+
+How the Game Works
+
+The project has three main ways of interacting with the guessing environment.
+
+Interactive Play
+
+The game can be played through a user-facing mode where a human provides answers to the agent's questions.
+
+This was part of the original idea: allowing the same guessing logic to interact with a real player rather than only a simulated target.
+
+System Simulation
+
+A system opponent can automatically select and hold a hidden character.
+
+This allows the agents to play complete games without human interaction:
+
+Agent selects action
+        ↓
+System checks hidden character
+        ↓
+System returns Yes / No
+        ↓
+Search space is updated
+        ↓
+Agent receives the new state
+        ↓
+Repeat
+
+This makes repeated simulations and controlled experiments possible.
+
+RL Environment
+
+The project also includes a custom Gymnasium environment used by the DQN agent.
+
+This separates the game mechanics from the learning algorithm and allows the environment to expose observations, process actions, calculate rewards, and manage episode termination.
+
+Project Structure
+
+The project is currently organized around separate responsibilities rather than placing all of the game logic inside a single script.
+
+Guessing_game/
+│
+├── agents/
+│   ├── base_agent.py
+│   ├── entropic_agent.py
+│   ├── epsilon_agent.py
+│   ├── info_gain_agent.py
+│   ├── random_agent.py
+│   └── rl_agent.py
+│
+├── analytics/
+│   ├── dashboard.py
+│   └── simulation.py
+│
+├── data/
+│   ├── characters.csv
+│   └── generator.py
+│
+├── environments/
+│   ├── gym_env.py
+│   └── system_opponent.py
+│
+├── models/
+│   └── dqn_guess_who.zip
+│
+├── main.py
+└── user_setting.py
+agents/
+
+Contains the different decision-making strategies.
+
+The agents share the same underlying guessing problem but approach it differently, making it possible to compare their behaviour under the same conditions.
+
+The current implementations include:
+
+a random baseline;
+my original entropy-based strategy;
+a binary information-gain strategy;
+an epsilon-based variation;
+a Reinforcement Learning agent.
+analytics/
+
+Contains the tools used to run simulations and analyze results.
+
+Rather than judging an agent from a single game, the simulation system can run repeated episodes and collect metrics such as:
+
+win rate;
+number of steps;
+search-space contraction;
+and other performance trends.
+
+The dashboard was built to make those results easier to observe instead of relying entirely on raw terminal output.
+
+data/
+
+Contains the character dataset and the dataset generation logic.
+
+The generator allows the search environment to be created and expanded rather than treating the game as a fixed collection of characters.
+
+This became important as I started experimenting with how changes in the search space affected agent behaviour.
+
+environments/
+
+Contains the game environments.
+
+system_opponent.py
+
+Handles the simulated opponent and the hidden target during automated games.
+
+gym_env.py
+
+Contains the custom Gymnasium environment used for Reinforcement Learning.
+
+This environment handles the interaction loop between the RL agent and the guessing game.
+
+Stores trained RL models.
+
+The current project includes a trained DQN policy used by the RL agent.
+
+main.py
+
+The main entry point for running the project and accessing the available modes.
+
+Current Focus: Comparing Decision Strategies
+
+The goal is not simply to find the agent with the highest win rate.
+
+I am interested in how and why the agents behave differently.
+
+For example:
+
+Does increasing the number of candidates change a strategy's effectiveness?
+How does feature cardinality affect an entropy-based approach?
+What happens when the action space becomes extremely large?
+How much information does an RL agent need about the environment?
+When does providing useful state information become too close to giving the agent the solution?
+Can a learned policy generalize beyond the environments it was trained on?
+
+These questions are what gradually pushed the project toward Reinforcement Learning experimentation.
+
+The Guessing Game is still evolving, but I am deliberately treating the development process itself as part of the project.
+
+Development Journey
+
+One thing I want to preserve in this repository is how the project actually developed.
+
+The final structure makes the path look more planned than it really was.
+
+It wasn't.
+
+I started with a simple idea for a guessing game, implemented a strategy based on how we humans might play, noticed behaviour I did not expect, and kept following the questions that came from those results.
+
+That eventually led me into problems involving:
+
+information theory;
+binary search partitions;
+large RL action spaces;
+exploration failure;
+action masking;
+state representation;
+potential information leakage;
+and reward shaping.
+
+Some of the most important parts of the project came from approaches that initially failed.
+
+The detailed documentation for this journey will cover each stage more closely:
+
+The original idea
+        ↓
+Building the game mechanism
+        ↓
+My first entropy-based agent
+        ↓
+Unexpected behaviour as complexity increased
+        ↓
+Comparing different heuristics
+        ↓
+My first RL attempt
+        ↓
+The large action-space problem
+        ↓
+Redesigning the environment
+        ↓
+State representation and split vectors
+        ↓
+Reward shaping with information theory
+
+I want these notes to document not only what I changed, but also what I was thinking at the time, what I expected to happen, what actually happened, and what I learned from being wrong.
+
+What's Next?
+
+The Guessing Game is the first major project inside the larger RL Playground.
+
+The next stage is to formalize the experimentation around it: testing how different strategies respond to changes in search-space complexity, state representation, feature distributions, and other environmental properties.
+
+The longer-term goal is for this project to become a place where I can experiment with Reinforcement Learning ideas rather than simply implement them.
+
+Some experiments may succeed.
+
+Some may fail.
+
+Both are useful.
+
+The point of the playground is to build something, watch what happens, and understand why.
