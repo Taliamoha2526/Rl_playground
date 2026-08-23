@@ -1,0 +1,451 @@
+#What Should the Agent Actually See?
+
+Fixing the action space solved one major problem.
+
+The DQN was no longer overwhelmingly encouraged to make random character guesses before learning how to ask questions.
+
+But after dealing with actions, I ran into another problem that was arguably even more important:
+
+> What information should the agent receive about the current game?
+
+This sounds like a simple implementation detail.
+
+It was not.
+
+The answer would determine what the agent was actually capable of learning.
+
+If I gave the agent too little information, it would have no meaningful understanding of the current search space.
+
+If I gave it too much, I risked giving it the exact information required to solve the problem directly.
+
+Somewhere between those two extremes, I needed to find a useful state representation.
+
+# The State Representation Problem
+
+At every step of the game, the environment changes.
+
+The agent asks a question:
+
+> Is Region = Europe?
+
+The answer might be:
+
+> Yes.
+
+Immediately, the candidate pool changes.
+
+Before question: 887 candidates
+
+After question: 158 candidates
+
+The important thing is that the next decision depends on the new search space.
+
+A question that was useful when 887 characters remained might be completely useless when only 158 remain.
+
+For example, a feature may initially have a balanced distribution:
+
+Feature A
+
+Value 1: 50%
+Value 2: 50%
+
+After several eliminations, the remaining candidates might look like:
+
+Feature A
+
+Value 1: 95%
+Value 2: 5%
+
+The same question no longer has the same value.
+
+So the RL agent needed some way of understanding the current structure of the candidate pool, not just the original dataset.
+
+That was the core problem.
+
+First Attempt: Keep the Agent Blind
+
+My first instinct was to keep the observation as simple as possible.
+
+I did not want to hand the agent the solution.
+
+So the initial observation contained only high-level information such as:
+
+Observation
+
+├── asked_mask
+└── remaining_ratio
+
+The asked_mask told the agent which questions had already been used.
+
+The remaining_ratio represented how much of the original candidate pool was still active.
+
+For example:
+
+Initial candidates: 4,200
+Remaining candidates: 420
+
+remaining_ratio = 0.10
+
+My thinking was:
+
+The agent knows what it has already asked and how far through the search process it is. Maybe it can learn a good sequence of questions from that.
+
+This was an appealingly clean design.
+
+The agent was not given:
+
+character identities;
+raw attributes;
+the current candidate matrix;
+manually calculated information gain.
+
+It had to learn from a minimal representation of the environment.
+
+But there was a major problem.
+
+The Blind Agent Could Not See the Actual Decision Problem
+
+The agent knew:
+
+What questions have I asked?
+
+How many candidates roughly remain?
+
+But it did not know:
+
+How are the remaining candidates distributed?
+
+This distinction turned out to be critical.
+
+Imagine two different episodes.
+
+Both might have:
+
+remaining_ratio = 0.25
+
+Both might have the same set of previously asked questions.
+
+From the agent's perspective, they could appear almost identical.
+
+But internally, the remaining search spaces could be completely different.
+
+Episode A
+Question X would split:
+
+50% / 50%
+Episode B
+The same Question X would split:
+
+95% / 5%
+
+Those are completely different decision situations.
+
+Yet the blind agent had no way to distinguish them.
+
+What It Actually Learned
+
+Without information about the current structure of the search space, the agent could not really learn:
+
+Given this state, which question should I ask?
+
+Instead, it was pushed toward learning something closer to:
+
+At this stage of the game, this question usually works well.
+
+In other words, it could learn a static sequence of preferences.
+
+Something like:
+
+Ask Question A
+        ↓
+Ask Question B
+        ↓
+Ask Question C
+        ↓
+Ask Question D
+
+That might work if every episode had the same underlying structure.
+
+But the project included randomized character data and changing candidate distributions.
+
+A fixed sequence could not reliably adapt.
+
+This was one of the most important observations I made during the project:
+
+The agent was not failing because it could not choose an action. It was failing because I had not given it enough information to know why one action was better than another in the current state.
+
+The observation was too abstract.
+
+I had successfully hidden the answer from the agent.
+
+Unfortunately, I had also hidden much of the problem.
+
+The Opposite Extreme: Give the Agent Everything
+
+Now the information required to evaluate every possible question is directly available.
+
+The agent could effectively inspect the candidate matrix and determine:
+
+How many candidates match Question 1?
+How many match Question 2?
+How many match Question 3?
+...
+
+This created what I started thinking of as the cheating dilemma.
+
+The goal was not to hide information for the sake of making the environment difficult.
+
+The agent obviously needs information to make intelligent decisions.
+
+But I did not want to build an experiment where the observation already contained the exact structure required to calculate the optimal heuristic.
+
+That would blur the distinction between:
+
+Learning a decision-making policy
+
+and:
+
+Being directly given enough raw data to reconstruct the solution
+
+Two Opposite Failures
+
+Neither extreme felt right.
+
+So I needed to think about what information actually mattered.
+
+What Does the Agent Really Need?
+
+I went back to the heuristics.
+
+The strongest heuristic strategies were not interested in the features of the character.
+
+What mattered was the partition created by an action.
+
+For every possible question, the important information was:
+
+What fraction of the current candidate pool would match this question?
+
+That was enough to describe how effectively a question could divide the search space.
+
+The agent did not necessarily need to know specifics on these candidates.
+
+It needed to understand what would happen to the search space if it selected each action.
+
+That led to the representation I eventually settled on.
+
+The Dynamic Split-Ratio Vector
+
+For every available question, the environment calculates the fraction of active candidates that would answer Yes.
+
+These values are collected into a vector:
+
+split_ratios =
+[
+    0.50,
+    0.12,
+    0.48,
+    0.91,
+    0.33,
+    ...
+]
+
+Each position corresponds to a possible question.
+
+For example:
+
+Action 0 → Is Sex = female?
+            split ratio = 0.48
+
+Action 1 → Is Region = Europe?
+            split ratio = 0.50
+
+Action 2 → Is Hair color = ginger?
+            split ratio = 0.12
+
+Action 3 → Is Industry = Film?
+            split ratio = 0.91
+
+The key idea was that these ratios are dynamic.
+
+After every question, the active search space changes.
+
+So the split ratios are recalculated.
+
+The same question can have a completely different split ratio later in the game.
+
+This allowed the agent to see the changing structure of the search problem.
+
+Why This Representation Was Different
+
+The split-ratio vector sits somewhere between the two earlier extremes.
+
+It does not expose:
+
+character names;
+raw rows;
+candidate identities;
+individual feature combinations.
+
+But it does expose something decision-relevant:
+
+The current partitioning behaviour of every possible question.
+
+That distinction was important to me.
+
+The environment is not saying:
+
+Here are all the characters. Calculate the best split yourself.
+
+It is providing an abstract representation of the current decision landscape:
+
+If you take Action 0 → approximately 50% match.
+
+If you take Action 1 → approximately 12% match.
+
+If you take Action 2 → approximately 48% match.
+
+...
+
+The RL agent still has to learn what those numbers mean.
+
+It must learn from reward and experience that some patterns of split ratios are generally more useful than others.
+
+The Connection to the Heuristic Baselines
+
+This was also where the earlier heuristic experiments became useful in an unexpected way.
+
+The information-based agents had already shown me that balanced partitions were important.
+
+A split ratio close to:
+
+0.50
+
+creates an approximately even binary partition.
+
+The split-ratio representation allowed the RL agent to observe the same structure of the decision problem that the heuristic agents were exploiting.
+
+But there was an important difference.
+
+The heuristic was explicitly programmed to calculate:
+
+Which action gives the best information gain?
+
+The RL agent was not directly given that rule.
+
+It received the state representation and reward signals, then had to learn a policy relating those observations to actions.
+
+That made the experiment more interesting to me.
+
+The question was no longer simply:
+
+Can I implement information gain?
+
+I had already done that.
+
+The question became:
+
+Can an RL agent learn useful information-gathering behaviour from an abstract representation of the current search space?
+
+Was This Still "Pure" RL?
+
+This was something I thought about while designing the environment.
+
+The split ratios are calculated by the environment.
+
+They are not discovered from raw observations by the DQN.
+
+So there is clearly some domain knowledge built into the state representation.
+
+I do not see that as invalidating the RL experiment.
+
+The environment designer always decides what constitutes an observation.
+
+A chess agent is given a representation of the board.
+
+A robot may be given joint positions and sensor readings.
+
+Here, I chose to represent the deduction game through the current decision consequences of available questions.
+
+The important distinction is that the environment does not tell the agent:
+
+Action 7 is optimal.
+
+Nor does it provide:
+
+Information gain = 0.999
+
+for every action.
+
+Instead, it provides a representation of the current state from which a policy can learn which actions tend to produce better long-term outcomes.
+
+Still, this is an important limitation of the experiment to acknowledge.
+
+The representation is not neutral.
+
+It encodes my understanding that the way an action partitions the search space is relevant to the problem.
+
+That is something I want to be explicit about rather than hide.
+
+A New Way of Thinking About State
+
+This experiment changed how I thought about RL observations.
+
+I initially treated observation design as something closer to an implementation choice:
+
+What variables should I put in the observation dictionary?
+
+By this point, I was starting to see it differently:
+
+An observation is a hypothesis about what information matters for solving the task.
+
+The blind observation made one hypothesis:
+
+The agent only needs to know what it has already asked and how much of the search space remains.
+
+That hypothesis was too weak.
+
+The raw candidate matrix made another:
+
+The agent should have access to the complete underlying state.
+
+That risked making the representation unnecessarily explicit.
+
+The split-ratio vector represented a third hypothesis:
+
+The agent does not need candidate identities. It needs to understand how each possible action would currently partition the search space.
+
+That was the representation I decided to experiment with.
+
+The Next Question
+
+By the end of this stage, I had a much better observation design.
+
+The agent could now see a dynamic representation of the current search space.
+
+The action space had been constrained so that exploration focused on meaningful questioning.
+
+The remaining problem was:
+
+How should I reward the behaviour I actually want?
+
+Initially, it was tempting to reward the agent simply for eliminating candidates.
+
+But that raised another question.
+
+Is eliminating 100 candidates always equally valuable?
+
+Consider:
+
+4,200 → 4,100
+
+versus:
+
+101 → 1
+
+Both eliminate 100 candidates.
+
+But they clearly do not represent the same amount of progress.
+
+The next stage of the project moved from state representation to reward representation.
+
+I wanted the reward to reflect not just how many candidates disappeared, but how much uncertainty the agent had actually removed.

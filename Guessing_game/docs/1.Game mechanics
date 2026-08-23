@@ -1,0 +1,319 @@
+#Building the First Version
+
+## Starting With the Simplest Question: What Are the Characters?
+
+Before thinking about Reinforcement Learning, agents, or even algorithms, I first had to decide what the game was actually searching through.
+
+The basic idea of *Guess Who?* is simple: there is a chosen character in a set of known characters, and the player asks questions to eliminate possibilities until they can make a guess.
+
+But turning that into a program immediately raised a few design questions:
+
+- What does a "character" look like in code?
+- Which features should characters have?
+- How should those features be represented?
+- How large should the search space be?
+- How do I generate enough combinations to make the game interesting?
+
+I decided to represent each character as a collection of categorical features.
+
+The first version used features such as:
+
+- Sex
+- Region
+- Age
+- Hair color
+- Industry
+For simplicity, the game doesn't adhere to any form of logic, nor does it refer to real life characters/ their features.
+
+A character could therefore be represented conceptually as something like:
+
+```text
+Sex: female
+Region: Europe
+Age: senior
+Hair color: blonde
+Industry: politics
+
+The agent would not initially search through a visual board like the original game. Instead, it would operate on a table of possible characters and progressively reduce that table based on yes/no answers.
+
+Starting Small
+
+I deliberately started with a simple search space.
+
+At this point, I was not trying to create a realistic population of characters or build a perfectly designed environment. I wanted to get the basic mechanics working first.
+
+Could I:
+
+generate a collection of characters?
+select one as the hidden target?
+ask a question about one of its features?
+receive a yes/no answer?
+eliminate the appropriate candidates?
+repeat until the target could be identified?
+
+Once those mechanics worked, I could increase the size and complexity of the space.
+
+This ended up being useful because increasing the search space later changed the behaviour of the strategies I was testing. A mechanism that appeared to work well in a small space could behave very differently once there were hundreds or thousands of possible candidates.
+
+That became one of the first signs that this project had more potential as an experiment than I originally expected.
+
+Generating Characters
+
+Rather than manually creating every character, I built a character generation function.
+
+The generator uses combinations of the available categorical values to construct the search space.
+
+This made it easy to expand the environment by changing the available values for each feature.
+
+For example, adding more regions or industries could immediately increase the number of possible candidates.
+
+However, the generator currently does not enforce logical constraints between features.
+
+Characters are generated from combinations rather than from a realistic model of people.
+
+That means some combinations may be logically unusual or unrealistic.
+
+For the purposes of the first version, this was intentional.
+
+The goal was to create a configurable search space for testing the mechanics of the game, not to generate a realistic population.
+
+I may eventually introduce constraints or structured distributions, especially if I want to investigate how correlations between features affect agent behaviour. For now, the independence of the generated features is itself a useful simplification.
+
+Designing the First Agent
+
+Once the basic game could exist, the next question was:
+
+How should the agent actually play?
+
+I initially did not approach this as a Reinforcement Learning problem.
+
+I started by thinking about how a human would probably approach the game.
+
+A player asks a question.
+
+They use the answer to eliminate some characters.
+
+Then they look at what remains and decide what to ask next.
+
+Sometimes, they might decide they have enough information and make a guess even when several possibilities remain.
+
+That led to the first high-level strategy.
+
+Primary Mode: Elimination
+
+The agent's main objective was to reduce the search space as quickly as possible.
+
+At every step, it would ask a question intended to remove a large portion of the remaining candidates.
+
+The basic intuition was straightforward:
+
+A useful question should change the search space.
+
+If asking a question only eliminates one or two characters, it probably is not as useful as a question that could potentially eliminate hundreds.
+
+The agent therefore needed to look at the current population of remaining candidates rather than follow a fixed sequence of questions.
+
+Search Space Representation
+
+The agent maintains its own current search space.
+
+At the beginning of a game, this contains every available character.
+
+After every answer, the space is updated.
+
+For example, suppose the agent asks:
+
+Is Region = Europe?
+
+If the answer is Yes:
+
+Keep all characters where Region == Europe
+
+If the answer is No:
+
+Remove all characters where Region == Europe
+
+The next decision is then made using the updated set of candidates.
+
+Conceptually:
+
+All candidates
+      ↓
+Ask question
+      ↓
+Receive answer
+      ↓
+Filter candidates
+      ↓
+New search space
+      ↓
+Choose next action
+
+This dynamic search space became the central object that every strategy would eventually interact with.
+
+Looking at Feature Distributions
+
+My next idea was that the agent should not choose questions blindly.
+
+Before asking a question, it could inspect the distribution of values among the remaining candidates.
+
+For each feature, the agent calculates how frequently each value appears.
+
+For example:
+
+Hair color:
+
+Black     → 6 candidates
+Blonde    → 2 candidates
+Brown     → 1 candidate
+Ginger    → 1 candidate
+
+This immediately gives some information about the possible consequences of asking:
+
+Is Hair color = Black?
+
+If the answer is No, six candidates are eliminated.
+
+If the answer is Yes, four candidates are eliminated.
+
+At this early stage, my reasoning was primarily based on elimination potential.
+
+I wanted the agent to find questions that could remove a large part of the search space.
+
+This would later evolve into a more complicated question:
+
+Is maximizing the probability of a large elimination actually the same thing as maximizing the information gained from a binary question?
+
+At this point, I had not reached that question yet.
+
+I was simply trying to give the agent a reasonable way to evaluate what was currently in front of it.
+
+The First Questioning Strategy
+
+The initial strategy was based on three ideas:
+
+1. Look at the current search space
+
+The agent should make decisions based on the characters that remain, not on the original dataset.
+
+A question that is useful at the beginning of a game may become completely useless later.
+
+2. Find values with strong elimination potential
+
+For each feature, the agent examines the frequency of its values.
+
+The intuition was that highly represented values could create large changes in the search space.
+
+For example:
+
+10 candidates remain.
+
+Black hair: 6
+Blonde hair: 2
+Brown hair: 1
+Ginger hair: 1
+
+Asking about black hair guarantees that one branch of the answer will remove a substantial portion of the candidates.
+
+3. Avoid redundant questions
+
+The agent also needed memory.
+
+It should not keep asking the same question or continue exploring a feature once the answer was already effectively determined by the remaining candidates.
+
+This introduced two important pieces of state:
+
+previously asked questions;
+the current set of valid candidates.
+
+The strategy was therefore not simply:
+
+Find the globally best question.
+
+It was:
+
+Look at what remains.
+Ignore what I already know.
+Evaluate the available questions.
+Choose one.
+Update what I know.
+Repeat.
+Adding Guessing
+
+Human players do not always wait until only one possible character remains.
+
+Sometimes they guess early.
+
+I wanted to include that behaviour in the first version of the agent.
+
+The agent therefore had a secondary mode: probabilistic guessing.
+
+With a configurable probability, the agent could skip another elimination step and directly guess one of the remaining characters.
+
+For example:
+
+90% → Continue asking questions
+10% → Make a guess
+
+This introduced stochasticity into the game.
+
+The original purpose was not yet formal RL-style exploration. I simply wanted to reproduce the possibility of an agent occasionally taking a risk instead of following the same deterministic elimination process every time.
+
+A wrong guess would be rejected and removed from consideration.
+
+A correct guess would end the game.
+
+This also made the strategy more interesting to simulate repeatedly, since two games starting from similar conditions would not necessarily follow exactly the same path.
+
+Termination
+
+The game could end in several ways.
+
+Only one candidate remains
+
+The agent has narrowed the search space to a single valid character and makes a confident guess.
+
+The agent may choose to guess before the search space has been completely reduced.
+
+A maximum number of steps is reached
+
+A step limit prevents the game from continuing indefinitely and creates a clear failure condition for later experiments.
+
+What I Had Built at This Point
+
+At this stage, I did not yet have an RL environment.
+
+I had built something much simpler:
+
+A dynamic search problem where an agent could observe a set of candidates, choose questions, receive answers, and progressively reduce uncertainty.
+
+The basic loop was:
+
+Generate characters
+        ↓
+Select hidden target
+        ↓
+Agent observes current search space
+        ↓
+Agent chooses:
+    Ask a question
+        OR
+    Make a guess
+        ↓
+Environment returns outcome
+        ↓
+Search space is updated
+        ↓
+Repeat
+
+Looking back, this was the point where the project had its first real structure.
+
+I was still thinking mostly about how to make the game playable and how to design a reasonable strategy.
+
+I was not yet thinking deeply about formal information gain, state representations, reward functions, or Reinforcement Learning.
+
+Those questions came later.
+
+And interestingly, many of them came from watching this first strategy behave in ways I had not expected.
+
+The game mechanics came first. The experiment emerged from what happened after I started changing them.

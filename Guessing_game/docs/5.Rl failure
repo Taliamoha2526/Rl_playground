@@ -1,0 +1,394 @@
+#My First DQN Failed
+
+By this point, I felt ready to finally introduce Reinforcement Learning.
+
+I had a working game environment.
+
+I had multiple heuristic agents.
+
+I had benchmarks.
+
+I had a rough theoretical reference for efficient play.
+
+Most importantly, I knew what good behaviour looked like.
+
+A strong agent should progressively reduce uncertainty, choose useful questions, and ideally identify a character in something close to the log_2_(N) range of decisions.
+
+So the next idea seemed straightforward:
+
+> Give a Deep Q-Network all the possible actions and let it learn how to play.
+
+This turned out to be much harder than I expected.
+
+---
+
+# The First RL Design
+
+I chose a Deep Q-Network (DQN) using Stable-Baselines.
+
+The initial action space combined two types of decisions:
+
+1. **Question actions**
+2. **Direct character guesses**
+
+Conceptually, the agent could choose from:
+
+Action Space
+
+├── Is Sex = male?
+├── Is Sex = female?
+├── Is Region = Europe?
+├── Is Region = Asia?
+├── Is Hair color = blonde?
+├── Is Industry = politics?
+│
+├── Guess Character 1
+├── Guess Character 2
+├── Guess Character 3
+│
+└── ...
+
+My reasoning was simple.
+
+These were all decisions available to a player.
+
+A human can either:
+
+ask another question;
+or decide they know enough and make a guess.
+
+So I initially represented both as actions in one unified discrete action space.
+
+I expected the agent to gradually learn:
+
+Asking good questions early is useful. Guessing becomes useful once the search space is small enough.
+
+That was the theory.
+
+The first training runs told a very different story.
+
+The Action Space Was Not Balanced
+
+The problem became obvious once I looked more carefully at the environment.
+
+The search space contained roughly 4,200 characters.
+
+That meant there were thousands of possible direct guess actions.
+
+The number of question actions was tiny by comparison.
+
+The resulting action space looked approximately like this:
+
+Total actions: ~4,200+
+
+Question actions: very small fraction
+Guess actions: ~99.3%
+
+So during early exploration, the overwhelming majority of randomly selected actions were direct guesses.
+
+And almost every random guess was wrong.
+
+The agent's early experience became something like:
+
+Start episode
+     ↓
+Explore random action
+     ↓
+Almost certainly select a character guess
+     ↓
+Almost certainly guess incorrectly
+     ↓
+Receive negative reward
+     ↓
+Episode ends or trajectory becomes poor
+     ↓
+Repeat
+
+The agent barely experienced the behaviour I actually wanted it to learn.
+
+It was technically capable of asking questions.
+
+But statistically, random exploration almost never reached them.
+
+The Result: 0% Win Rate
+
+The first DQN did not slowly improve.
+
+It did not discover a weak questioning strategy.
+
+It did not eventually approach the heuristic baselines.
+
+It collapsed into a terrible policy.
+
+The win rate reached:
+
+0%
+
+This was one of the most useful failures in the project.
+
+My first reaction was naturally to look at the model.
+
+Was DQN the wrong algorithm?
+
+Was the reward too weak?
+
+Did I need more training?
+
+But the more I looked at the problem, the less I believed the failure was primarily about DQN itself.
+
+The environment had given the agent an extremely unbalanced exploration problem.
+
+I had effectively created an action space where:
+
+Almost every possible exploratory action was immediately bad.
+
+That changed how I thought about the phrase "let the agent explore."
+
+Exploration is not magic.
+
+If useful actions are extremely rare and destructive actions dominate the action space, random exploration may spend most of its time generating useless experience.
+
+The agent cannot learn a good questioning strategy if it almost never gets the opportunity to practice questioning.
+
+My First Important RL Environment Lesson
+
+This was the first major point where building the game and building an RL environment started feeling like two different problems.
+
+From a game-design perspective, the unified action space made sense.
+
+A player really can either:
+
+Ask a question
+
+or:
+
+Make a guess
+
+But from an RL perspective, those actions had dramatically different properties.
+
+There were:
+
+relatively few question actions;
+thousands of guess actions;
+almost no chance of randomly selecting the correct guess early in an episode.
+
+The environment was logically valid.
+
+But logically valid did not mean easily learnable.
+
+That distinction became one of the biggest lessons of the project.
+
+The way a decision problem is represented can determine whether an RL agent has any realistic chance of learning it.
+
+Trying to Control Invalid Actions
+
+Once I understood the action imbalance, I needed to stop the agent from wasting most of its training on premature guesses.
+
+My first instinct was action masking.
+
+The logic was straightforward:
+
+If remaining candidates > 1:
+    allow question actions
+    block direct guesses
+
+If remaining candidates == 1:
+    allow final guess
+
+This would force the agent to participate in the actual deduction process.
+
+Instead of immediately selecting from thousands of character guesses, it would have to reduce the search space first.
+
+Conceptually:
+
+Remaining candidates > 1
+          │
+          ▼
+    Ask a question
+          │
+          ▼
+ Update search space
+          │
+          ▼
+Remaining candidates = 1
+          │
+          ▼
+      Make guess
+
+This was a much better description of the behaviour I wanted to train.
+
+But implementing that constraint introduced another problem.
+
+The action_mask Crash
+
+My first attempt was to include a dynamic action_mask directly inside the Gymnasium observation dictionary.
+
+The idea was to give the agent something like:
+
+Observation
+
+├── asked_mask
+├── remaining_ratio
+├── split_ratios
+└── action_mask
+
+The action_mask would indicate which actions were currently valid.
+
+For example:
+
+Question 1 → valid
+Question 2 → valid
+Question 3 → invalid
+Guess 1     → invalid
+Guess 2     → invalid
+...
+
+Then, once the search space became sufficiently small, the valid guess actions could change dynamically.
+
+Conceptually, this seemed clean.
+
+The environment would simply tell the agent:
+
+Here is the current state, and here are the actions you are allowed to take.
+
+But standard Stable-Baselines3 policies were not expecting this additional observation component in the way I had implemented it.
+
+The environment crashed because the observation structure no longer matched what the policy expected.
+
+This forced me to separate two ideas that I had initially treated as the same thing:
+
+Observation
+
+Information describing the current state of the environment.
+
+Action validity
+
+Rules determining which actions the agent is allowed to take.
+
+Those are related, but they are not necessarily the same object.
+
+Moving the Constraint Out of the Observation
+
+I removed action_mask from the Gymnasium observation dictionary.
+
+The observation space needed to remain clean and consistent for Stable-Baselines3.
+
+Instead, action validity was handled through the agent and environment logic.
+
+The key rule became:
+
+While active candidates N > 1:
+
+    Do not allow direct candidate guesses.
+
+    Select from valid question actions.
+
+Once the deduction process is complete:
+
+    Allow the final guess.
+
+This was effectively a structural guardrail around exploration.
+
+I was no longer asking the DQN to independently discover, from thousands of terrible possibilities, that guessing early was usually a bad idea.
+
+The environment constrained the decision process so that the agent could actually experience the behaviour I wanted it to learn.
+
+This raised an interesting question for me.
+
+Was I making the problem easier in an artificial way?
+
+In one sense, yes.
+
+I was removing a major decision from the agent during most of the episode.
+
+But I also started seeing it differently.
+
+The goal of this experiment was not to see whether DQN could randomly discover that 4,200 possible guesses are usually worse than asking a question.
+
+The interesting learning problem was:
+
+Given the current search space, which question should the agent ask next?
+
+The direct guessing decision had overwhelmed the actual experiment.
+
+Constraining it allowed me to focus the learning problem on sequential information gathering.
+
+I had fixed the most obvious issue with the action space.
+
+But that did not mean the RL agent now understood the game.
+
+I still had to decide what the agent should actually see.
+
+The Next Problem Was the Observation
+
+At this point, I had spent a lot of time thinking about actions:
+
+What should the agent be allowed to do?
+
+The next stage forced me to think about the other side of the problem:
+
+What information does the agent need in order to make those decisions?
+
+I wanted the agent to learn a strategy from interaction.
+
+But there was a difficult balance.
+
+If I gave it too little information, it might not understand the current search space well enough to make an informed decision.
+
+If I gave it too much information, I risked exposing the underlying data so directly that the agent could effectively calculate the answer rather than learn a useful policy.
+
+The next experiment became an attempt to find a representation between those two extremes.
+
+Too little information
+        │
+        ▼
+Agent cannot adapt to the current state
+
+
+        VS.
+
+
+Too much information
+        │
+        ▼
+Agent effectively receives the solution
+
+Finding the middle ground would become one of the most important design problems in the entire project.
+
+What This Failure Taught Me
+
+My first DQN experiment did not fail because the code simply had a bug.
+
+It exposed several deeper problems in how I had framed the environment.
+
+1. A valid action space can still be a bad learning space
+
+Just because every action is logically possible does not mean every action should be equally available during exploration.
+
+2. Action frequency matters
+
+When thousands of bad actions dominate a handful of useful ones, unguided exploration can fail before meaningful learning begins.
+
+3. RL environment design is part of the algorithm
+
+The model does not learn in isolation.
+
+The:
+
+action space;
+observation space;
+reward;
+transition rules;
+termination conditions;
+
+all shape what the agent is capable of learning.
+
+4. Failure changed the direction of the project
+
+Before this experiment, I was mainly asking:
+
+Can I put DQN inside this game?
+
+After it failed, the more interesting question became:
+
+How do I represent this game so that learning the decision-making process is actually possible?

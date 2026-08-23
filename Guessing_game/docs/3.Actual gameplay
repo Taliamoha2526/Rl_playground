@@ -1,0 +1,360 @@
+#Once the Agent Started Playing, Then the Problems Started
+
+Once the first version of the agent could actually play the game, I expected the next step to be relatively straightforward: run it, observe the results, and gradually improve the strategy.
+
+Instead, this was where the project started becoming much more iterative.
+
+The basic loop worked. The agent could ask questions, receive answers, update its search space, and eventually make a guess.
+
+But as soon as I started watching actual games, I began noticing small problems in its behaviour.
+
+Some were obvious bugs.
+
+Others were consequences of decisions I had made earlier without fully thinking through how they would behave over multiple turns.
+
+The development process became a repeated cycle:
+
+Build an idea
+      ↓
+Run the agent
+      ↓
+Notice strange behaviour
+      ↓
+Ask why it happened
+      ↓
+Change the logic
+      ↓
+Run it again
+      ↓
+Discover the next problem
+
+This was probably the first point where the project started teaching me more than simply implementing an algorithm would have.
+
+The First Problem: Binary Features
+
+One of the first issues appeared with binary features.
+
+Consider a feature like:
+
+Sex = male / female
+
+The agent could ask:
+
+Is Sex = male?
+
+and receive:
+
+No
+
+At that point, if those were the only two possible values, the agent already had all the information available from that feature.
+
+The answer logically implied:
+
+Sex = female
+
+But the agent did not initially understand that.
+
+It could later waste another turn asking:
+
+Is Sex = female?
+
+This was one of those problems that seemed obvious once I saw it happen.
+
+The search space had already encoded the answer, but the agent's questioning logic did not treat the entire feature as resolved.
+
+The Fix
+
+I changed the update logic so that binary features could be resolved after a single answer.
+
+If the agent received:
+
+Is Sex = male?
+→ No
+
+the remaining value was effectively known.
+
+The feature could then be marked as resolved and excluded from future questions.
+
+This introduced a broader idea into the agent:
+
+A question does not only provide information about the exact value that was asked. Sometimes the structure of the feature itself allows additional information to be deduced.
+
+This was the first time I started thinking about the difference between tracking individual questions and tracking what the agent had actually learned.
+
+The Entropy Problem: Why Was the Agent Stuck on One Feature?
+
+After fixing binary redundancy, another behaviour became obvious.
+
+The agent sometimes kept returning to the same feature.
+
+For example, it could repeatedly focus on Sex while ignoring other potentially useful features such as:
+
+Region
+Age
+Hair color
+Industry
+
+The immediate reason was related to how I was using entropy for feature selection.
+
+At every turn, the agent recalculated feature scores from the current search space and selected the best-scoring feature.
+
+But nothing initially told it:
+
+You have already learned everything useful from this feature.
+
+So even though the search space had changed, the feature-selection process could continue evaluating features that should effectively have been removed from consideration.
+
+Adding Feature Resolution
+
+I introduced an asked_features tracker.
+
+The name is slightly misleading in retrospect, because the purpose was not simply to remember every feature the agent had touched.
+
+The goal was to track whether a feature had become resolved.
+
+A feature would be excluded when:
+
+it was logically resolved, as with a binary feature;
+only one possible value remained;
+asking another question about it could no longer provide useful information.
+
+This changed the selection process from:
+
+Evaluate every feature to:
+
+Evaluate every unresolved feature
+
+That distinction mattered.
+
+The agent was no longer simply calculating which feature had the highest score.
+
+It first had to decide which parts of the state still contained uncertainty worth investigating.
+
+Guessing Too Early
+
+Another issue appeared when the search space became small.
+
+I initially allowed the agent to make guesses before the candidate pool had been reduced to a single character.
+
+In practice, I noticed behaviour I did not like.
+
+The agent could reach two remaining candidates and immediately guess one, even though it might still have enough information available to distinguish them.
+
+This made me reconsider what the probabilistic guessing mechanism was actually supposed to do.
+
+There was a difference between:
+
+The agent has enough information to guess.
+
+and:
+
+The agent randomly decided to guess.
+
+I changed the main logic so that a confident guess would normally happen only when one valid candidate remained.
+
+The other conditions became:
+
+the maximum number of steps is reached;
+the probabilistic override triggers.
+
+Otherwise, the agent should continue searching.
+
+This made the agent's normal behaviour much more consistent.
+
+The random guess was now genuinely an exception rather than an unintended shortcut.
+
+Debugging the Step Counter
+
+One of the less conceptual but surprisingly persistent problems was the step counter.
+
+At one point, the output looked something like:
+
+Step 1
+Step 3
+Step 5
+
+The agent was clearly taking actions, but the counter was being incremented incorrectly.
+
+The issue came down to where the increment happened.
+
+At different points, I had placed it:
+
+at the top of the game loop;
+inside individual action branches;
+in logic that was also being reached elsewhere.
+
+That meant some actions effectively caused multiple increments.
+
+The eventual rule became simple:
+
+One action should equal one increment.
+
+The counter should increase exactly once, immediately before the action is recorded or displayed.
+
+This sounds trivial, but it was a useful reminder that state variables become difficult to reason about when multiple parts of a system are allowed to modify them.
+
+The same issue appeared again when I introduced user-play mode, which forced me to make the rule consistent across both game loops.
+
+Adding User-Play Mode
+
+Until this point, most testing happened against a simulated opponent.
+
+But I also wanted to see what it would feel like for a human to actually play against the agent.
+
+The idea was simple:
+
+Show the available character space.
+Let the user secretly choose one character.
+The agent asks yes/no questions.
+The user responds with y or n.
+The agent updates its search space.
+Eventually, it makes a guess.
+
+This became the play_with_user() mode.
+
+The first challenge was surprisingly practical.
+
+Once the character space became large, printing the entire DataFrame was not useful.
+
+Thousands of rows in a terminal did not make the game easier to understand.
+
+So the final switch was to have the whole dataset saved in simple accessible csv.
+
+This was a small change, but it was also the first point where I started thinking more deliberately about the difference between:
+
+Data the program needs.
+
+and:
+
+Information a human actually needs to see.
+
+Wrong Guesses and Repeated Candidates
+
+The probabilistic guessing mechanism caused another issue in user-play mode.
+
+When the override triggered, the agent could make a random guess.
+
+If it was wrong, that character should obviously no longer be considered.
+
+But initially, the logic did not fully enforce this.
+
+The agent could potentially suggest the same rejected character again.
+
+To fix this, I introduced a rejected set.
+
+Every incorrect guess was stored.
+
+Future guesses were sampled only from:
+
+Current search space
+        -
+Rejected candidates
+
+This separated two different concepts:
+
+Remaining candidates
+
+Characters that had not been eliminated by answers.
+
+Rejected guesses
+
+Characters the agent had directly tested and already proven wrong.
+
+In the end, I also removed incorrectly guessed candidates from the active search space itself, making the game state more internally consistent.
+
+The Random Guessing Problem
+
+The override_probability was another feature that sounded simple but behaved differently once it was placed inside a running system.
+
+The original idea was:
+
+Occasionally make a guess to introduce risk and randomness.
+
+But depending on the probability and where the check occurred, the behaviour could become too aggressive.
+
+The agent would guess prematurely.
+
+If the implementation was not careful, it could also repeatedly guess invalid or previously rejected candidates.
+
+This forced me to think more carefully about what the override represented.
+
+It was not just a random number.
+
+It changed the entire balance between:
+
+continuing to gather information;
+taking a risk;
+terminating the game early.
+
+This would later become much more relevant when I started thinking about formal RL exploration.
+
+At this stage, however, the solution was primarily about making the heuristic behave consistently:
+
+trigger the override once per decision;
+only guess from valid candidates;
+remove rejected guesses;
+otherwise continue the normal questioning strategy.
+What I Was Learning From the Bugs
+
+Looking back, these problems were more connected than they first appeared.
+
+The binary feature issue was about deducing what had already been learned.
+
+The feature-selection issue was about knowing when a part of the state was resolved.
+
+The guessing issue was about defining when uncertainty was low enough to act.
+
+The rejected-candidate issue was about maintaining a consistent state after an action failed.
+
+And the step-counter issue was about making state transitions occur exactly once.
+
+None of those initially felt like Reinforcement Learning problems.
+
+They were problems of environment and agent design.
+
+But that turned out to be important.
+
+Before I could train an agent to learn how to make decisions, I first had to make sure I could clearly define:
+
+what information existed;
+what the agent knew;
+which actions were valid;
+how actions changed the state;
+and when an episode should end.
+
+In other words, I was gradually discovering the pieces of an RL environment before I had formally built one.
+
+The Project Was Still Not RL
+
+At this point, the agent was still heuristic-driven.
+
+Its strategy was written by me.
+
+I was deciding:
+
+how features were scored;
+which values were selected;
+when guessing was allowed;
+which questions were redundant.
+
+There was no learned policy yet.
+
+No reward signal.
+
+No training loop.
+
+No formal environment interface.
+
+But the heuristic was becoming useful for another reason.
+
+It gave me something to compare against.
+
+I now had a working agent whose behaviour I could observe, benchmark, break, and eventually challenge with learned approaches.
+
+By this point, I had:
+
+A working sequential decision problem with a state, actions, transitions, uncertainty, and measurable outcomes.
+
+I just hadn't formalized it as an RL environment yet.
+
+That came next.

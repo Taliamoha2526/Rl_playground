@@ -1,0 +1,341 @@
+#Designing the First Agent
+
+Once I had the basic game mechanics working, the next question was how the agent should actually make decisions.
+
+I knew I did not want it to follow a fixed sequence of questions.
+
+A question that makes sense at the beginning of one game might be useless later. Every answer changes the candidate pool, which means the next decision should depend on what remains.
+
+My first design therefore separated the problem into two decisions:
+
+> **Which feature should the agent explore?**
+
+and then:
+
+> **Which value within that feature should it ask about?**
+
+For example, the agent might first decide that `Hair color` is the most useful feature to investigate, then decide that `black` is the most useful value to ask about.
+
+This became my first decision framework.
+
+---
+
+## 1. Choosing a Value: Frequency-Based Scoring
+
+The first part was relatively intuitive.
+
+Once a feature had been selected, I wanted the agent to inspect how its values were distributed among the remaining candidates.
+
+Suppose the current search space looked like this:
+
+Hair color:
+
+black   → 6
+blonde  → 2
+ginger  → 2
+
+My reasoning was:
+
+If I ask about the most common value, I have the potential to remove the largest group of candidates with a single answer.
+
+So the agent would ask:
+
+Is Hair color = black?
+
+If the answer was No, six candidates would immediately be removed.
+
+If the answer was Yes, the search space would instead collapse to those six candidates.
+
+The strategy was therefore based on the frequency of individual values.
+
+At this stage, I was thinking primarily in terms of elimination potential.
+
+The larger the group associated with a value, the larger the possible change to the search space.
+
+This became the first layer of the agent's decision-making process:
+
+Selected feature
+       ↓
+Calculate value frequencies
+       ↓
+Find the most frequent value
+       ↓
+Ask about that value
+
+2. Choosing a Feature: Entropy-Based Scoring
+
+Choosing the value was only half of the problem.
+
+The agent still needed to decide whether it should ask about:
+
+Hair color
+Age
+Region
+Industry
+Sex
+
+I needed some way for the agent to look at the distribution of each feature and decide which one was likely to be useful.
+
+This was where I introduced entropy.
+
+For each feature, the agent calculated the entropy of its current value distribution.
+
+My initial intuition was that entropy could help describe how the values were distributed across the remaining candidates.
+
+For example:
+
+Hair color entropy = 0.97
+Age entropy        = 1.50
+
+The original idea was to use this distribution-level score to decide which feature should be explored before frequency was used to select a specific value.
+
+So the complete decision process became:
+
+Step 1:
+Evaluate the distribution of every feature
+        ↓
+Use entropy to choose a feature
+        ↓
+Step 2:
+Evaluate the values within that feature
+        ↓
+Use frequency to choose the value
+        ↓
+Step 3:
+Ask the binary question
+
+Conceptually:
+
+Which feature?
+    ↓
+Entropy
+    ↓
+Which value?
+    ↓
+Frequency
+    ↓
+Ask
+
+This was my first attempt at separating the broader structure of the decision from the specific question.
+
+The feature-level decision and value-level decision were handled differently.
+
+Looking back, this separation was one of the most important design choices I made early on.
+
+It also eventually became the source of one of the project's most interesting problems.
+
+I was calculating a score over an entire multi-value feature distribution, but the actual action the agent took was always a binary question about one specific value.
+
+I did not fully understand the consequences of that distinction yet.
+
+At this point, entropy was simply the heuristic I had chosen to help the agent decide where to look next.
+
+3. Adding a Probabilistic Guess
+
+I also did not want the agent to behave perfectly or deterministically.
+
+When humans play guessing games, they do not always wait until every possibility has been eliminated.
+
+Sometimes they decide they have enough information and guess.
+
+Sometimes they are simply wrong.
+
+I wanted to introduce some of that behaviour into the system.
+
+So I added an override_probability.
+
+At every turn, the agent had some probability p of ignoring its normal questioning strategy and making a direct guess from the remaining candidates.
+
+Conceptually:
+
+Normal turn:
+
+Ask another question
+
+but occasionally:
+
+override_probability triggers
+        ↓
+Select a candidate
+        ↓
+Make a direct guess
+
+For example:
+
+90% → continue eliminating candidates
+10% → make a random guess
+
+The guess was selected from the current valid search space.
+
+If it was wrong, that candidate was rejected.
+
+If it was correct, the game ended.
+
+At this stage, I was not thinking about this as formal RL exploration.
+
+The goal was much simpler: I wanted the agent to occasionally take a risk rather than follow the exact same elimination strategy every game.
+
+It also made repeated simulations less deterministic.
+
+Two agents starting from similar conditions could potentially take different paths because one might decide to guess while the other continued asking questions.
+
+Putting the Strategy Together
+
+The first agent therefore had three main behaviours.
+
+Feature selection
+
+Use the current distribution of values to decide which feature to explore.
+
+Value selection
+
+Within that feature, select a value based on its frequency among the remaining candidates.
+
+Probabilistic override
+
+With some probability, skip the normal elimination process and make a direct guess.
+
+The decision loop looked like this:
+
+Current search space
+        ↓
+Check whether a random guess is triggered
+        │
+        ├── Yes → Guess
+        │
+        └── No
+             ↓
+        Evaluate feature distributions
+             ↓
+        Choose feature
+             ↓
+        Evaluate value frequencies
+             ↓
+        Choose value
+             ↓
+        Ask question
+             ↓
+        Receive Yes / No
+             ↓
+        Update search space
+             ↓
+        Repeat
+The State I Needed to Track
+
+To make this work, the agent needed more than just the original character list.
+
+It maintained several pieces of state during a game.
+
+search_space
+
+The current set of possible candidates.
+
+It begins with the full character set and is progressively reduced after every answer.
+
+This was the central state of the game.
+
+override_probability
+
+Controls how often the agent can make a direct guess instead of asking another question.
+
+This made the strategy configurable and introduced stochastic behaviour.
+
+step_counter
+
+Tracks how many decisions the agent has made.
+
+This was useful both for limiting games and later for analyzing how efficiently different strategies reduced the search space.
+
+history
+
+Records questions that have already been asked.
+
+Without this, the agent could potentially repeat the same question even when the answer was already known.
+
+Rejected candidates
+
+When the agent made a wrong direct guess, that candidate needed to be removed from future consideration.
+
+This prevented the agent from repeatedly guessing the same character.
+
+The Core Methods
+
+The design eventually translated into methods responsible for different parts of the decision process.
+
+choose_feature_entropy()
+
+Calculate a score from the distribution of each available feature and use it to select the next feature to explore.
+
+choose_feature_value_frequency(feature)
+
+Look at the values inside the selected feature and choose one based on frequency.
+
+take_turn()
+
+Determine what the agent should do next.
+
+Should it:
+
+make a confident guess because only one candidate remains?
+make a probabilistic random guess?
+ask another question?
+
+This became the main decision point of the agent.
+
+update_search_space(feature, value, response)
+
+Apply the opponent's answer to the candidate pool.
+
+If the answer is:
+
+Yes
+
+keep candidates matching the value.
+
+If the answer is:
+
+No
+
+remove candidates matching the value.
+
+The First Complete Strategy
+
+At this point, I had what I considered a complete agent:
+
+Observe remaining candidates
+        ↓
+Occasionally guess
+        ↓
+Otherwise choose a feature
+        ↓
+Choose a value within that feature
+        ↓
+Ask a question
+        ↓
+Use the answer to eliminate candidates
+        ↓
+Repeat
+
+It was still a heuristic.
+
+There was no learned policy.
+
+No reward function.
+
+No value function.
+
+No RL environment.
+
+But this was the first point where the game had an actual decision-making system rather than just a mechanism for filtering characters.
+
+And this is where the project started becoming interesting.
+
+Because once I could actually run the agent repeatedly, I could start watching what it did.
+
+And eventually, I noticed something that forced me to revisit the entropy part of this design.
+
+The agent was making decisions based on the entropy of an entire feature distribution.
+
+But its actual action was always a binary question about one value.
+
+That difference would eventually lead me to rethink what the agent was really optimizing.

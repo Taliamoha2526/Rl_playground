@@ -1,0 +1,382 @@
+By this point, the environment had changed significantly from my first DQN attempt.
+
+I had:
+
+- constrained the action space so exploration focused on meaningful questions;
+- redesigned the observation around dynamic split ratios;
+- introduced rewards based on logarithmic information reduction;
+- added a small cost for taking unnecessary steps;
+- and established heuristic baselines showing what efficient behaviour could look like.
+
+The next step was straightforward in theory:
+
+> Train the agent and see whether it could learn.
+
+I already had a game constraint in place:
+
+max_steps = 20
+
+That limit made sense.
+
+The strongest heuristic agents could solve the larger search spaces in roughly 12 steps, while 20 steps provided some room for less efficient strategies.
+
+So I initially used the same limit during RL training.
+
+But this introduced another problem.
+
+The 20-Step Limit Made Sense for Evaluation
+
+The purpose of the original limit was to measure efficiency.
+
+I did not want an agent to:
+
+Ask question
+    ↓
+Ask another weak question
+    ↓
+Ask another
+    ↓
+Continue indefinitely
+
+At some point, the episode needs to end.
+
+A trained agent should be judged partly by whether it can solve the problem within a reasonable number of decisions.
+
+For benchmarking, max_steps = 20 gave me a clear constraint:
+
+Can the agent identify the character?
+
+AND
+
+Can it do so efficiently?
+
+But I started realizing that these were evaluation questions.
+
+They were not necessarily the right conditions for learning.
+
+An Untrained Agent Does Not Know How to Be Efficient Yet
+
+At the beginning of training, the DQN has no useful policy.
+
+Even after fixing the action space and improving the observation, the agent still needs time to discover useful trajectories.
+
+Early behaviour may look like:
+
+Question A
+    ↓
+Poor reduction
+
+Question B
+    ↓
+Small reduction
+
+Question C
+    ↓
+Useful reduction
+
+Question D
+    ↓
+Another poor decision
+
+A trained agent might eventually learn to reach the target efficiently.
+
+But an untrained agent has to experience both:
+
+bad trajectories;
+and successful trajectories.
+
+With a strict 20-step cutoff, I noticed a problem.
+
+The agent could spend much of its early training exploring inefficient sequences and then get truncated before ever reaching a successful terminal state.
+
+The agent receives the experience:
+
+That sequence did not finish in time.
+
+But if successful episodes are extremely rare, it has much less opportunity to learn:
+
+This is what eventually reaching the goal looks like.
+
+That distinction became important.
+
+Training Needs Successful Experience
+
+The agent cannot begin by behaving like the final policy I want to evaluate.
+
+It needs to learn how to get there.
+
+This made me rethink the role of the step limit.
+
+Instead of treating:
+
+max_steps = 20
+
+as an absolute property of the environment, I separated two purposes.
+
+Training
+
+Give the agent enough time to explore and complete trajectories.
+
+Evaluation
+
+Measure whether the learned policy can solve the task efficiently under stricter conditions.
+
+These are related environments, but they do not necessarily need identical episode limits.
+
+Extending the Training Horizon
+
+To give the agent more opportunity to reach successful terminal states, I increased the training horizon:
+
+Training:
+max_steps = 100
+
+The purpose was not to teach the agent that taking 100 steps was acceptable.
+
+The small step penalty was still present.
+
+The agent was still encouraged to finish efficiently.
+
+But it was no longer immediately cut off after 20 decisions while it was still learning.
+
+The training process now looked more like:
+
+Episode starts
+      ↓
+Agent explores
+      ↓
+Makes inefficient decisions
+      ↓
+Continues interacting
+      ↓
+Eventually narrows the search space
+      ↓
+Experiences successful completion
+      ↓
+Learns from the full trajectory
+
+This gave the learning process room to develop.
+
+Efficiency Was Still Part of the Objective
+
+Increasing the training horizon created an obvious concern:
+
+If the agent has 100 steps, won't it just learn to take 100 steps?
+
+That is where the reward design mattered.
+
+The agent still received a cost for each additional step.
+
+Conceptually:
+
+Every action:
+    small negative reward
+
+Useful information:
+    positive reward
+
+Successful completion:
+    terminal reward
+
+So the training environment was more forgiving in terms of how long an episode was allowed to continue.
+
+But the reward still made unnecessary behaviour costly.
+
+The distinction was:
+
+Training horizon:
+How long the agent is allowed to keep trying.
+
+Reward:
+How strongly the agent is encouraged to finish efficiently.
+
+Those are not the same thing.
+
+This was an important conceptual separation for me.
+
+Training and Evaluation Became Two Different Experiments
+
+I eventually started thinking about the process like this:
+
+The training environment asks:
+
+Can the agent learn a useful policy?
+
+The evaluation environment asks:
+
+How good is the policy it learned?
+
+Using the same constraint for both had initially seemed natural.
+
+But they serve different purposes.
+
+The codebase now involved:
+
+Environment
+     ↓
+Observation space
+     ↓
+RL model
+     ↓
+Agent wrapper
+     ↓
+Simulation
+     ↓
+Evaluation
+     ↓
+Visualization
+
+A change in one layer could expose assumptions in another.
+
+The modular structure I had built earlier became increasingly useful as the project became more complex.
+
+Forcing a Final Guess
+
+There was still another practical problem.
+
+Even with the longer training horizon, I did not want an evaluation episode to continue indefinitely when the agent had already narrowed the search space significantly.
+
+At some point, continuing to ask questions stops making sense.
+
+I introduced fallback logic to handle situations such as:
+
+Remaining candidates ≤ 5
+
+or:
+
+Approaching the evaluation step limit
+
+In those situations, the system could force a transition toward a direct guess.
+
+This was partly a practical design decision.
+
+The goal was to prevent the agent from wasting the final stages of an episode when the search space was already very small.
+
+This also made the evaluation process more predictable.
+
+What This Changed in My Thinking
+
+Before this experiment, I had mostly thought about the environment as one fixed object.
+
+The game has rules.
+
+The agent trains inside those rules.
+
+The agent is evaluated inside those same rules.
+
+But training made that view feel too simplistic.
+
+I started seeing an RL experiment as having multiple layers.
+
+The task
+
+What is the agent fundamentally trying to solve?
+
+In this case:
+
+Identify the hidden character through sequential yes/no decisions.
+
+The training environment
+
+What conditions give the agent a realistic opportunity to learn that task?
+
+In this case:
+
+a longer episode horizon;
+meaningful observations;
+constrained exploration;
+information-based rewards.
+The evaluation environment
+
+What conditions measure the quality of the learned policy?
+
+In this case:
+
+stricter step limits;
+win rate;
+average steps;
+search-space contraction;
+comparison against heuristic baselines.
+
+The underlying task remained the same.
+
+But the conditions used for learning and measurement did not have to be identical.
+
+The Bigger Lesson
+
+This stage taught me something that seems obvious in hindsight but was not obvious when I first started building the environment:
+
+A difficult evaluation condition can be useful precisely because it is difficult. That does not mean it is always useful during early learning.
+
+If an agent is evaluated under a strict constraint, failure is informative.
+
+But if the same constraint prevents the agent from ever experiencing meaningful success during training, it can interfere with learning itself.
+
+The goal was not to make training easy.
+
+It was to make successful learning trajectories possible while still rewarding efficiency.
+
+By this point, the RL experiment had gone through several iterations.
+
+The first action space
+
+Failed because direct guesses dominated exploration.
+
+Action constraints
+
+Redirected exploration toward the actual deduction problem.
+
+Blind observations
+
+Failed because the agent could not adapt to the changing search space.
+
+Raw observations
+
+Risked exposing too much of the underlying structure.
+
+Dynamic split ratios
+
+Provided an abstract representation of the current decision landscape.
+
+Linear elimination rewards
+
+Failed to distinguish small relative progress from major uncertainty reduction.
+
+Information-based rewards
+
+Measured progress through logarithmic search-space reduction.
+
+Strict training horizon
+
+Risked truncating learning trajectories before the agent could experience enough successful outcomes.
+
+Extended training horizon
+
+Gave the agent room to complete trajectories while step penalties continued to reward efficiency.
+
+The project had become much more iterative than I originally expected.
+
+The Next Stage
+
+At this point, I had a trainable environment and a more complete experimentation pipeline.
+
+But an experiment is only useful if I can inspect what happened.
+
+Training an agent and printing:
+
+Finished training.
+
+does not tell me very much.
+
+I needed to compare agents, run repeated simulations, track metrics, and visualize their behaviour.
+
+The next stage of the project focused on turning the system into something I could actually experiment with.
+
+That meant building the evaluation and visualization layer:
+
+repeated simulations;
+configurable epochs;
+override probabilities;
+win rates;
+number of steps;
+search-space contraction;
+and plots that made the differences between strategies visible.

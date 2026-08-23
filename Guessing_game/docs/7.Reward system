@@ -1,0 +1,391 @@
+#Rewarding Information, Not Just Elimination
+
+By this point, the environment had gone through several major changes.
+
+I had learned that the action space could make exploration almost impossible.
+
+I had learned that giving the agent too little state information prevented it from adapting to the current search space.
+
+I had also learned that giving it raw candidate data risked exposing too much of the underlying problem.
+
+The Dynamic Split-Ratio Vector became my attempt to give the agent a useful representation of the current decision landscape.
+
+But there was still another major part of the environment to design:
+
+> How should the agent be rewarded?
+
+At first, the obvious answer seemed simple.
+
+The goal of the game is to eliminate candidates until only the correct character remains.
+
+So why not reward the agent based on the number of candidates it removes?
+
+The more candidates eliminated, the better the action.
+
+But when I looked more closely, I realized that **candidate elimination alone was not a good measure of progress**.
+
+# The Problem With Linear Elimination Rewards
+
+Imagine two different situations.
+
+Situation A
+
+The agent starts with 4,200 candidates.
+
+It asks a question and reduces the search space to 4,100.
+The agent eliminated:
+
+100 candidates
+
+Now consider another situation.
+
+Situation B
+
+The agent starts with 101 candidates.
+
+It asks a question and reduces the search space to 1.
+
+101 → 1
+
+Again, the agent eliminated:
+
+100 candidates
+
+A simple linear reward would treat both actions as equally valuable.
+
+For example:
+
+reward = candidates_eliminated
+
+Both would receive:
+
++100
+
+But these decisions are clearly not equivalent.
+
+In the first case:
+
+4,200 → 4,100
+
+the agent has barely changed the problem.
+
+In the second:
+
+101 → 1
+
+the agent has essentially solved it.
+
+This made me realize that the raw number of eliminated candidates does not capture the actual amount of progress.
+
+What mattered was not:
+
+How many candidates disappeared?
+
+but:
+
+How much uncertainty did the agent remove?
+
+Going Back to Information Theory
+
+This brought me back to the same idea that had appeared while building the heuristic baselines.
+
+The Guessing Game is fundamentally a process of reducing uncertainty.
+
+At the beginning of an episode:
+
+There are N possible characters.
+
+The agent does not know which one is the target.
+
+Every useful question should reduce the number of possible states.
+
+A question that cuts the search space in half gives the agent one bit of information.
+
+For example:
+
+100 candidates
+      ↓
+Ask question
+      ↓
+50 candidates
+
+The uncertainty has been reduced by a factor of two.
+
+This gave me a much more meaningful way to measure progress.
+
+The Information-Based Reward
+
+The reward now measures the logarithmic reduction of the candidate pool.
+
+The important difference is that the reward is relative.
+
+The second action receives a dramatically larger reward.
+
+Even though both actions eliminated exactly 100 candidates.
+
+This was much closer to what I actually wanted the agent to learn.
+
+A Perfect Split
+
+One of the most useful properties of this reward appears when a question divides the search space exactly in half.
+
+A perfect halving always produces:
+
++1.0
+
+bit of information.
+
+The same is true regardless of the size of the search space.
+
+4,000 → 2,000  = +1 bit
+
+200 → 100      = +1 bit
+
+20 → 10        = +1 bit
+
+This was one of the reasons I liked the formulation.
+
+The reward measures the quality of the reduction, rather than the absolute scale of the dataset.
+
+Why This Matched the Environment
+
+The game is based on binary questions.
+
+Every question creates two possible branches:
+
+Ideally, it creates something close to:
+
+50% / 50%
+
+A highly unbalanced question might create:
+
+90% / 10%
+
+That question can occasionally produce a large reduction.
+
+But most of the time, it leaves a large portion of the search space behind.
+
+The information-based reward connects the agent's feedback directly to the structure of the search problem.
+
+The better the actual reduction in uncertainty after receiving an answer, the greater the reward.
+
+Rewarding the Result, Not the Heuristic
+
+One thing I wanted to avoid was simply putting the information-gain heuristic directly into the reward, and directly reward the agent based on which pre-calculated score it selected.
+
+That would make the RL objective too close to:
+
+Learn to reproduce the heuristic I already programmed.
+
+Instead, the reward is calculated from the actual transition.
+
+The environment only looks at:
+
+How many candidates existed before?
+
+How many candidates remain after?
+
+The agent is rewarded for what actually happened after interacting with the environment.
+
+This distinction mattered to me.
+
+The heuristic calculates which action should theoretically be useful before asking.
+
+The RL agent chooses an action and learns from the consequences afterward.
+
+There was another problem to consider.
+
+If the agent receives only positive rewards for reducing the search space, it may not have a strong reason to finish efficiently.
+
+A sequence of many small reductions can still accumulate reward.
+
+But the goal is not just:
+
+Reduce uncertainty eventually.
+
+The goal is:
+
+Reduce uncertainty efficiently.
+
+To encourage that, I introduced a small step penalty.
+
+Conceptually:
+
+Every step:
+    -0.05
+
+Useful reduction:
+    + information reward
+
+So the total incentive becomes something closer to:
+
+Take useful actions
+
+BUT
+
+Do not take unnecessary actions forever.
+
+This creates a trade-off.
+
+A question needs to provide enough value to justify spending another step.
+
+The agent is encouraged to:
+
+avoid useless questions;
+avoid extremely slow elimination;
+reduce the search space efficiently.
+
+The exact reward values are part of the environment design and may continue changing as I experiment, but the underlying idea became clear:
+
+Progress should be rewarded, but time should still have a cost.
+
+Terminal Rewards
+
+The game also has a clear terminal objective.
+
+Eventually, the agent needs to identify the correct character.
+
+This raises another distinction between:
+
+Good intermediate behaviour
+
+and:
+
+Actually solving the episode
+
+Reducing the search space is useful.
+
+But reducing it is not the final objective by itself.
+
+The environment therefore also uses terminal outcomes to distinguish between:
+
+successfully identifying the target;
+incorrect guesses;
+and other unsuccessful episode endings.
+
+The reward structure became a combination of:
+
+Information gained
+        +
+Efficient behaviour
+        +
+Successful completion
+        -
+Failure / unnecessary cost
+
+Rather than relying on only one signal.
+
+The Reward Was a Hypothesis Too
+
+The more I worked on this environment, the more I realized that reward design was similar to observation design.
+
+It is not just a technical implementation detail.
+
+A reward function is also a hypothesis.
+
+It answers:
+
+What behaviour do I believe should be encouraged?
+
+A linear elimination reward makes the hypothesis:
+
+Removing more candidates is always proportionally better.
+
+The experiments showed me that this was too simplistic.
+
+The logarithmic reward makes a different hypothesis:
+
+The relative reduction of uncertainty is what matters.
+
+That better matched the structure of the game.
+
+It also connected directly to the earlier heuristic experiments.
+
+The heuristic agents explicitly used information theory to choose actions.
+
+The RL environment now used information reduction to evaluate the consequences of actions.
+
+Connecting the Pieces
+
+By this stage, several parts of the project had started connecting together.
+
+The heuristic agents
+
+Helped establish what efficient information gathering looked like.
+
+The action space failure
+
+Showed that the way decisions are represented can make exploration fail completely.
+
+The observation experiments
+
+Showed that the agent needed access to the current structure of the decision problem without being handed raw candidate identities.
+
+The reward design
+
+Provided a way to measure progress in terms of uncertainty rather than raw candidate counts.
+
+Each piece had emerged from a different problem I encountered while building the project.
+
+None of them were part of the original idea in exactly this form.
+
+What I Was Trying to Learn
+
+At this point, I was no longer simply experimenting with whether DQN could play a guessing game.
+
+The experiment had become more specific.
+
+I wanted to see whether an RL policy, given:
+
+a representation of how available questions partition the current search space;
+the ability to choose between those questions;
+and rewards based on the amount of uncertainty actually removed;
+
+could learn an efficient information-gathering strategy.
+
+The heuristic agents had already established a strong reference point.
+
+A balanced question should generally be useful.
+
+The RL agent was not explicitly programmed with:
+
+Always choose the split closest to 0.50.
+
+Instead, the environment was designed so that the consequences of efficient information gathering were reflected in its observations and rewards.
+
+Whether the learned policy actually approaches the heuristic behaviour is something that has to be measured experimentally.
+
+That distinction is important.
+
+A good environment design does not guarantee that the agent has learned the intended strategy.
+
+It only creates the conditions under which that strategy can potentially be learned.
+
+The Next Problem: Training Is Not the Same as Evaluation
+
+At this stage, I had:
+
+constrained the action space;
+redesigned the observation;
+introduced dynamic split ratios;
+reshaped the reward around information reduction.
+
+The next step was training.
+
+Initially, I kept the same game constraint I had used for benchmarking:
+
+max_steps = 20
+
+This seemed reasonable.
+
+After all, I wanted an efficient agent.
+
+But during training, I started noticing another problem.
+
+The agent was being cut off before it had enough opportunity to experience successful trajectories.
+
+A limit that made sense for evaluating a trained agent was not necessarily ideal for training an untrained one.
+
+This led to the next distinction I had to make:
+
+The environment used for learning does not always need to be identical to the environment used for evaluation.

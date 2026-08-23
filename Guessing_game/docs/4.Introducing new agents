@@ -1,0 +1,374 @@
+#Up to this point, I had built a working deduction game and an agent capable of playing it.
+
+The agent could:
+
+- observe the remaining search space;
+- choose a feature;
+- select a value to ask about;
+- receive a yes/no answer;
+- eliminate candidates;
+- occasionally make an early guess;
+- and eventually identify a character.
+
+But there was a problem with moving directly into Reinforcement Learning.
+
+I had no idea what **good performance** actually looked like.
+
+If I trained an RL agent and it solved the game in 18 steps, would that be good?
+
+What if it solved it in 12?
+
+What if a simple heuristic could do the same thing without any training at all?
+
+Before I could evaluate whether an RL agent had learned anything useful, I needed something to compare it against.
+
+## Why Build Baselines First?
+
+My original agent was already heuristic-driven.
+
+I had manually decided how it should think:
+
+1. Look at the remaining candidates.
+2. Analyse their feature distributions.
+3. Choose something that appears useful to ask about.
+4. Update the search space.
+5. Repeat.
+
+This gave me a working starting point, but it also created an important question.
+
+If I eventually introduced RL, I did not want to simply say:
+
+> The RL agent won, therefore it worked.
+
+That would not tell me much.
+
+The game could potentially be solved using a very simple strategy.
+
+An RL agent might also perform worse than a basic heuristic.
+
+So I started thinking about the project as a benchmark.
+
+I wanted multiple agents facing the same environment.
+
+The Baselines
+
+I eventually defined four different non-RL strategies:
+
+RandomAgent
+CardinalityEntropyAgent
+BinaryInfoGainAgent
+EpsilonInfoGainAgent
+
+They were not all intended to be equally strong.
+
+That was the point.
+
+Each one represented a different way of approaching the same decision problem.
+
+Together, they gave me a spectrum ranging from random behaviour to increasingly informed decision-making.
+
+1. Random Agent
+
+The simplest baseline was the random agent.
+
+It does not try to understand the structure of the search space.
+
+It does not calculate entropy.
+
+It does not calculate information gain.
+
+It simply selects from the available actions according to its random policy.
+
+This gave me a useful lower-bound reference.
+
+If a supposedly intelligent strategy could not consistently outperform random decisions, something was probably wrong with either:
+
+the strategy;
+the environment;
+the reward design;
+or the experiment itself.
+
+The random baseline was important because it established that not every improvement in performance should automatically be attributed to intelligence.
+
+Sometimes an environment may simply be easy.
+
+2. Cardinality Entropy
+
+The next strategy grew out of my earlier work with entropy.
+
+At this point, I was experimenting with how the number and distribution of possible values within a feature affected its usefulness.
+
+A feature with more possible categories creates a different type of decision structure from a binary feature.
+
+For example:
+
+Sex
+├── Male
+└── Female
+
+has a very different cardinality from:
+
+Industry
+├── Film
+├── Politics
+├── Music
+├── Content
+├── Entrepreneur
+└── ...
+
+The Cardinality Entropy Agent used the distributional structure of the features as part of its decision-making process.
+
+This was useful as an intermediate heuristic because it gave me another perspective on the search problem.
+
+However, as the project developed, I started realizing that scoring an entire feature was not necessarily the same as scoring the actual question the agent was about to ask.
+
+That distinction would eventually become extremely important.
+
+3. Binary Information Gain
+
+The biggest conceptual change came when I started looking more directly at the actual action.
+
+The agent does not ask:
+
+Which feature is best?
+
+At least, not in the final sense.
+
+The agent ultimately takes an action like:
+
+Is Hair color = blonde?
+
+That is a binary decision.
+
+The answer creates two possible partitions:
+
+                     Current Candidates
+                             │
+              Is Hair color = blonde?
+                       /             \
+                    Yes               No
+                     │                 │
+            Matching candidates   All others
+
+This made me rethink how the quality of a question should be measured.
+
+The useful question was not simply:
+
+Which feature has the highest entropy?
+
+It was:
+
+How effectively does this specific yes/no question divide the current search space?
+
+The Ideal Split
+
+Suppose there are 100 candidates remaining.
+
+Consider two questions.
+
+Question A
+Yes → 50 candidates
+No  → 50 candidates
+Question B
+Yes → 90 candidates
+No  → 10 candidates
+
+Question A creates a perfectly balanced split.
+
+Regardless of the answer, the search space is cut in half.
+
+Question B might occasionally remove 90 candidates, but most of the time it leaves 90 candidates behind.
+
+For a decision strategy that wants to minimize uncertainty on average, these are not equivalent.
+
+This led me toward the information-theoretic interpretation of the game.
+
+So if a question consistently divides the search space into two equal halves, every answer gives exactly one bit of information.
+
+This gave me a much clearer idea of what an efficient strategy should look like.
+
+A strong question is one that creates the most balanced partition of the remaining candidates.
+
+A Theoretical Reference Point
+
+Once I started thinking about the game as a sequence of binary partitions, I could estimate the theoretical number of questions required and that number became a useful reference point for the experiments.
+
+If an agent could consistently identify a character in roughly 12 questions, it was behaving close to the theoretical limit for balanced binary decisions.
+
+This was one of the moments where the project changed for me.
+
+I was no longer only watching whether the agent won.
+
+I could now ask:
+
+How far is its behaviour from the theoretical efficiency of the environment?
+
+That is a much more interesting measurement than simple win rate.
+
+4. Epsilon Information Gain
+
+The final heuristic introduced some controlled randomness.
+
+The idea was similar to the exploration mechanisms I had already experimented with in earlier versions of the agent.
+
+Most of the time:
+
+Choose the question with the strongest information-gain potential.
+
+But occasionally:
+
+Explore another available action.
+
+Conceptually:
+
+With probability ε
+        │
+        ▼
+Explore a different action
+
+With probability 1 - ε
+        │
+        ▼
+Choose the best-known information-gain action
+
+This gave me a heuristic somewhere between:
+
+completely deterministic optimisation, and completely random behaviour.
+
+This reflected on one of the most emphasized problems but Sutton and Barto in RL:
+
+exploration versus exploitation.
+
+At this stage, however, this was still a manually designed heuristic.
+
+The agent was not learning from rewards.
+
+I was explicitly defining:
+
+what "good" meant;
+how to measure it;
+and when the agent should deliberately behave differently.
+What the Heuristics Revealed
+
+Once I started running the different agents against the same environment, the differences became much more visible.
+
+The information-based heuristics consistently performed far better than uninformed strategies.
+
+This was important for two reasons.
+
+First, the game was not just about eliminating the largest number of candidates from one branch.
+
+It was about reducing uncertainty efficiently across possible outcomes.
+
+Second, it gave me a real benchmark for the next stage of the project.
+
+I now knew that an RL agent should not merely learn to win.
+
+A stronger question was:
+
+Can an RL agent learn a strategy that approaches the behaviour of the information-based heuristics?
+
+The Step Limit Became Part of the Experiment
+
+I had also introduced a maximum number of steps:
+
+max_steps = 20
+
+Initially, this was simply a practical game constraint.
+
+I did not want an agent to continue asking questions indefinitely.
+
+But once I started comparing strategies, the step limit became part of the experiment itself.
+
+A weak or poorly ordered strategy might continue reducing the search space but still fail to isolate the target within 20 turns.
+
+A strong strategy could consistently finish much earlier.
+
+This meant that performance was no longer just:
+
+Win / Loss
+
+It also involved:
+
+How quickly?
+How consistently?
+How efficiently?
+
+The metrics started becoming more meaningful:
+
+win rate;
+average number of steps;
+candidate-space contraction;
+final number of remaining candidates;
+behaviour as the search space increased.
+
+The game was gradually becoming an experimental environment.
+
+A Change in How I Viewed the Project
+
+Before building these baselines, my plan was roughly:
+
+Build game
+     ↓
+Build RL agent
+     ↓
+Train it
+
+But the heuristic experiments changed that.
+
+The project became:
+
+Build game
+     ↓
+Understand the decision problem
+     ↓
+Build simple strategies
+     ↓
+Measure their behaviour
+     ↓
+Establish strong baselines
+     ↓
+Understand what good performance looks like
+     ↓
+Then introduce RL
+
+This was a much better foundation.
+
+Without the baselines, an RL result would have existed in isolation.
+
+With them, I had something to challenge it against.
+
+The Question I Was Ready to Ask Next
+
+By this point, I had:
+
+a working environment;
+multiple heuristic strategies;
+a random baseline;
+measurable performance metrics;
+an information-theoretic reference point;
+and a clearer understanding of what efficient play looked like.
+
+I was finally ready to introduce Reinforcement Learning.
+
+But the next step was not as straightforward as I expected.
+
+My initial idea was simple:
+
+Put every possible decision into one action space and let the RL agent learn what to do.
+
+That sounded reasonable.
+
+The environment had questions.
+
+The environment had possible guesses.
+
+Both were actions.
+
+So I combined them.
+
+I did not yet realize that this decision would create the first major RL failure in the project.
+
+The next experiment would teach me something I had not fully appreciated until then:
+
+An environment can be logically correct and still be extremely difficult for an RL agent to learn from.

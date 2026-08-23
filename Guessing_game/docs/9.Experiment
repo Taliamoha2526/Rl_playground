@@ -1,0 +1,593 @@
+When I first thought about this project, I was not planning to build an experimentation framework.
+
+The original idea was much smaller.
+
+I was teaching myself Reinforcement Learning and kept wondering how I could connect the concepts I was learning to something interactive. Games seemed like a natural place to start.
+
+One random thought eventually became:
+
+> What if I built an agent that could play a Guess Who?-style game?
+
+At first, I only wanted to get the mechanics working.
+
+Could I generate a set of characters?
+
+Could an agent ask yes/no questions?
+
+Could it eliminate candidates after receiving an answer?
+
+Could it eventually guess the correct character?
+
+That was the entire idea.
+
+But as I continued building, debugging, comparing strategies, and introducing RL, the project gradually became something much larger.
+
+Looking back, this was probably the point where I realized the project had become much more than an RL exercise.
+
+It had become a place where I could change the conditions of a decision-making problem and observe what happened.
+
+That is also why the name RL Playground started making more sense.
+
+The guessing game was no longer just a game.
+
+It was an experiment.
+
+From One Run to Repeated Experiments
+
+Watching a single game can be interesting as it tells me something about one trajectory.
+
+But one trajectory does not tell me very much about an algorithm.
+
+Maybe the target character was unusually easy to isolate.
+
+Maybe the first question happened to produce an extremely favourable split.
+
+Maybe randomness caused the agent to make an early guess.
+
+To understand how a strategy actually behaves, I needed repeated experiments.
+
+This led to the simulation system.
+
+Instead of asking:
+
+What happened in this game?
+
+I could ask:
+
+What happens over 100 games?
+
+or:
+
+What happens when I increase the search space?
+
+or:
+
+What happens when I introduce more randomness?
+
+or:
+
+Does this strategy remain effective when the environment becomes more difficult?
+
+The simulation engine allowed experiments to run across multiple epochs.
+
+This changed the scale of what I could study.
+
+Comparing Different Ways of Making Decisions
+
+One of the most important parts of the system was building multiple agents.
+
+The project eventually included several different approaches to the same problem.
+
+Random Agent
+
+The simplest baseline.
+
+The agent does not try to intelligently identify useful questions.
+
+Its purpose is not to perform well.
+
+Its purpose is to answer an important experimental question:
+
+How much better is an intelligent strategy than essentially random decision-making?
+
+Without a weak baseline, it is difficult to understand whether a more advanced algorithm is actually doing something meaningful.
+
+Cardinality Entropy
+
+This strategy evaluates the structure of the search space and uses distribution-based reasoning to choose questions.
+
+The goal is to reduce the candidate pool efficiently.
+
+This represented one of my earliest attempts to move beyond random gameplay and give the agent a deliberate strategy.
+
+Binary Information Gain
+
+This became a stronger information-theoretic baseline.
+
+Instead of simply thinking about which value appeared frequently, the strategy focused more directly on how well a question could divide the remaining search space.
+
+The ideal question is close to:
+
+50% Yes
+50% No
+
+because neither possible answer leaves the agent with an overwhelmingly large candidate pool.
+
+This is closely related to the theoretical structure of binary search.
+
+This gave me a useful reference point.
+
+Epsilon-Information Gain
+
+I also wanted to introduce controlled randomness.
+
+A purely deterministic heuristic always follows its calculated best action.
+
+But real decision processes can involve exploration, mistakes, noise, or deliberate deviation from the current best option.
+
+The epsilon-style strategy allowed me to experiment with this balance.
+
+Sometimes:
+
+Follow the best information-based action
+
+Other times:
+
+Explore another option
+
+This created another interesting question:
+
+Does introducing randomness always make a strategy worse, or can controlled exploration sometimes change behaviour in useful ways?
+
+Deep Q-Network
+
+Finally, the RL agent represented a fundamentally different approach.
+
+The heuristic agents already contain mathematical reasoning about what makes a useful question.
+
+The DQN does not begin with that rule.
+
+Instead, it receives:
+
+a state representation;
+available interactions with the environment;
+rewards;
+and repeated experience.
+
+Its job is to learn a policy from the consequences of its actions.
+
+This made the comparison much more interesting to me.
+
+The experiment was no longer simply:
+
+Algorithm A vs Algorithm B
+
+It became a comparison between different philosophies of decision-making all solving the same underlying search problem.
+
+Introducing Controlled Imperfection
+
+Another important part of the experimentation system was the ability to change the override_probability.
+
+This came from an earlier idea in the project.
+
+I originally introduced probabilistic guessing to simulate imperfect behaviour.
+
+At any turn, an agent could potentially override its normal decision process and make a direct guess.
+
+At first, this was mainly part of the gameplay logic.
+
+Later, it became an experimental variable.
+
+I could ask:
+
+What happens when I increase the probability of overriding a rational strategy?
+
+For example:
+
+Override Probability = 0.00
+
+The strategy behaves deterministically.
+
+Override Probability = 0.10
+
+The agent occasionally deviates.
+
+Override Probability = 0.30
+
+The decision process becomes substantially more stochastic.
+
+This allows the environment to test robustness.
+
+A strong strategy should not only look good under perfect conditions.
+
+It is interesting to see what happens when its behaviour becomes noisy.
+
+How quickly does performance degrade?
+
+Does the number of steps increase?
+
+Does the win rate collapse immediately?
+
+Or does the strategy remain relatively stable?
+
+These were exactly the kinds of questions I had not imagined asking when I first started writing the game logic.
+
+Scaling the Search Space
+
+One of the most interesting things I noticed while working on the project was how behaviour changed as the search space grew.
+
+The first versions of the game used relatively simple feature spaces.
+
+That was intentional.
+
+I wanted to make sure the mechanics worked before introducing more complexity.
+
+As the number of possible characters increased, the environment changed significantly.
+
+A strategy that looked effective in a small search space did not necessarily behave the same way in a larger one.
+
+This gave the project another experimental dimension:
+
+Small Search Space
+        ↓
+Medium Search Space
+        ↓
+Large Search Space
+        ↓
+High-Cardinality Search Problem
+
+Now I could observe:
+
+how the average number of steps scaled;
+whether win rates remained stable;
+which heuristics degraded first;
+whether the RL policy generalized;
+and how close different strategies came to the theoretical information limit.
+
+This was one of the things that made the project feel more substantial than a simple game implementation.
+
+The game mechanics stayed familiar.
+
+But by increasing the number and structure of possible states, I could turn it into a much larger sequential decision problem.
+
+Measuring More Than Wins
+
+At first, success seemed simple.
+
+Did the agent guess the correct character?
+
+Yes → Win
+
+No → Loss
+
+But that quickly became too limited.
+
+Two agents could both have:
+
+100% win rate
+
+while behaving very differently.
+
+For example:
+
+Agent A:
+Average steps = 12
+
+versus:
+
+Agent B:
+Average steps = 45
+
+Technically, both solve the game.
+
+But they do not solve it with the same efficiency.
+
+This is why the experiment needed multiple metrics.
+
+Win Rate as the most obvious measure.
+
+This answers:
+
+Can the strategy reliably solve the task?
+
+Number of Steps
+
+This measures how efficiently the strategy reaches a conclusion.
+
+A lower number is not automatically better in every situation.
+
+An agent could guess immediately and occasionally get lucky.
+
+So this metric needs to be interpreted alongside win rate.
+
+Together, they answer:
+
+How often does the strategy succeed, and how much interaction does success require?
+
+Search-Space Contraction
+
+This became one of the most interesting metrics for me.
+
+Instead of looking only at the final outcome, I could observe the trajectory of the search process itself.
+
+For example:
+
+Step 0 → 4,200 candidates
+Step 1 → 2,100
+Step 2 → 1,050
+Step 3 → 520
+Step 4 → 260
+
+This produces a very different pattern from:
+
+Step 0 → 4,200 candidates
+Step 1 → 4,000
+Step 2 → 3,600
+Step 3 → 3,100
+Step 4 → 2,900
+
+Both agents are technically making progress.
+
+But the structure of that progress is completely different.
+
+Search-space contraction allowed me to see how an algorithm thinks over time, at least through the consequences of its decisions.
+
+That was much more interesting than only looking at whether the final guess was correct.
+
+The Plots Became Part of the Experiment
+
+Visualization was not originally a major part of the idea.
+
+At first, terminal output was enough.
+
+Then the project grew.
+
+Once I started running multiple simulations and comparing multiple agents, raw numbers became much harder to interpret.
+
+The plots gave me another way to study the experiment.
+
+I could visualize:
+
+win rates across simulations;
+average steps;
+candidate-pool reduction;
+search-space contraction curves;
+the effect of override probability;
+and differences between agents.
+
+The most important change was that I could now see patterns rather than just calculate them.
+
+The experiment became visual.
+
+And for me, that made the behaviour of the algorithms much easier to reason about.
+
+From a Game to a Playground
+
+This was the point where I started seeing the larger potential of the project.
+
+The Guessing Game was built around a specific problem:
+
+Sequentially reduce uncertainty until a hidden state can be identified.
+
+But the framework behind it could support many different experiments.
+
+The core pattern is:
+
+Environment has hidden state
+          │
+          ▼
+Agent receives observations
+          │
+          ▼
+Agent selects an action
+          │
+          ▼
+Environment transitions
+          │
+          ▼
+Agent receives feedback
+          │
+          ▼
+Repeat
+
+That pattern appears everywhere in Reinforcement Learning.
+
+The guessing game gave me one concrete environment where I could experiment with:
+
+state representation;
+action-space design;
+exploration;
+reward shaping;
+stochasticity;
+policy learning;
+baseline comparison;
+and evaluation.
+
+I do not want this repository to become a collection of finished tutorial implementations.
+
+I want it to become a record of experimentation.
+
+A place where I can take something I am learning, build an environment around it, test my assumptions, make mistakes, and document what actually happens.
+
+What the Project Can Be Used For
+
+The current Guessing Game can already be used in several different ways.
+
+1. Comparing Decision-Making Strategies
+
+Different agents can be placed inside the same environment and evaluated under identical conditions.
+
+This makes it possible to compare:
+
+random decision-making;
+deterministic heuristics;
+stochastic heuristics;
+information-theoretic approaches;
+and learned RL policies.
+
+The environment provides a controlled setting where the decision problem stays constant while the strategy changes.
+
+2. Studying Search-Space Complexity
+
+The character generator can create larger or more complex candidate spaces.
+
+This makes it possible to experiment with questions such as:
+
+How does performance scale as the search problem grows?
+
+Which strategies are robust to increasing complexity?
+
+Does an RL policy trained on one search-space size generalize to another?
+
+3. Studying Noise and Imperfect Decisions
+
+The override mechanism allows controlled stochasticity.
+
+Instead of assuming that an agent always follows its ideal policy, the experiment can introduce deviations and observe their effects.
+
+This can be useful for studying:
+
+robustness;
+sensitivity to randomness;
+exploration versus exploitation;
+and performance degradation.
+4. Experimenting With RL Design
+
+Perhaps the most important use for me personally is that the environment gives me a place to test RL design decisions.
+
+I can change:
+
+the observation;
+the action representation;
+the reward function;
+the episode length;
+the exploration behaviour;
+or the learning algorithm.
+
+Then I can observe what changes.
+
+The environment becomes a practical way to ask:
+
+What happens if I design this differently?
+
+That is much more valuable to me than simply implementing an algorithm from a notebook.
+
+5. Education and Documentation
+
+The project can also serve as a learning resource.
+
+Not because it presents a perfect solution.
+
+In fact, the opposite is more interesting.
+
+The documentation records:
+
+the original assumptions;
+failed approaches;
+bugs;
+redesigns;
+and the reasoning behind changes.
+
+That progression is probably more representative of how I actually learned than a polished final implementation alone would be.
+
+Looking Back at the Original Idea
+
+I started this because I was self-learning Reinforcement Learning.
+
+I did not want to only read equations and complete tutorials.
+
+I wanted to find a way to make the concepts interact with something real.
+
+The original question was almost casual:
+
+Could I make an agent play this game?
+
+Somewhere along the way, I ended up dealing with:
+
+combinatorial dataset generation;
+search algorithms;
+entropy;
+information gain;
+state representations;
+high-dimensional action spaces;
+exploration failure;
+action constraints;
+reward shaping;
+episode truncation;
+DQN training;
+Gymnasium environments;
+repeated simulations;
+metrics;
+and visualization.
+
+The project grew because every answer created another question.
+
+That was not something I planned.
+
+It happened naturally through experimentation.
+
+And I think that is what I want the RL Playground to continue being.
+
+Not a repository where every project begins with:
+
+Here is the algorithm I am going to implement.
+
+But a place where projects can begin with:
+
+I wonder what would happen if I tried this?
+
+The Real Outcome So Far
+
+The RL agent is one outcome of this project.
+
+The heuristic benchmarks are another.
+
+The simulation dashboard is another.
+
+But I think the biggest outcome is the environment itself.
+
+I now have a system where I can change variables, introduce different agents, run repeated experiments, and observe how strategies behave under changing conditions.
+
+And that gives the project room to keep growing.
+
+I can add:
+
+new agents;
+new RL algorithms;
+different reward functions;
+new state representations;
+more complex character constraints;
+curriculum learning experiments;
+generalization tests;
+multi-agent variations;
+and entirely different deduction environments.
+
+The project started as one small experiment.
+
+Now it feels more like a foundation.
+
+Where the Playground Goes Next
+
+The Guessing Game is currently the first major environment inside the RL Playground.
+
+It will probably not be the last.
+
+I also want to use the repository to work through ideas and experiments from my Reinforcement Learning studies, including concepts inspired by Sutton and Barto.
+
+Some experiments may be small.
+
+Some may fail.
+
+Some may only exist to answer one question I had while learning.
+
+That is part of the point.
+
+The goal is not for every experiment to become a finished application.
+
+The goal is to build, test, observe, and understand.
+
+This project taught me that there is a big difference between reading that an algorithm behaves in a certain way and actually building an environment where you can watch that behaviour emerge.
+
+The Guessing Game gave me my first playground for doing that.
+
+And it has already grown far beyond the random idea that started it.
