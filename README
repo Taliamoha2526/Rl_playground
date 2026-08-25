@@ -85,8 +85,6 @@ The basic problem is simple:
 > A hidden character exists somewhere in a large pool of candidates. An agent must ask yes/no questions and progressively reduce the search space until it can identify the correct character.
 
 For example:
-
-```text
 Step 1: Is Industry = 'film'?
 Answer: No
 Remaining candidates: 887
@@ -103,7 +101,6 @@ Remaining candidates: 1
 
 Step 13: Guess → Character 398
 Correct.
-```
 
 What started as a guessing game quickly became more interesting.
 
@@ -169,7 +166,6 @@ I want this repository to show more than finished results.
 
 For each substantial project, I want to preserve the path that led there:
 
-```text
 Idea
  ↓
 Implementation
@@ -185,7 +181,6 @@ Experiment
 Learn
  ↓
 Try again
-```
 
 That process is what I find most valuable about learning Reinforcement Learning.
 
