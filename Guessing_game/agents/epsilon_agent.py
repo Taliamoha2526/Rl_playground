@@ -8,7 +8,7 @@ class EpsilonInfoGainAgent(InfoGainAgent):
         self.epsilon = epsilon
 
     def take_turn(self):
-        # Epsilon exploration: Ask random question
+        # Added random exploration based on epsilon probability
         if random.random() < self.epsilon:
             unasked_pairs = []
             for col in self.search_space.columns:
@@ -22,5 +22,5 @@ class EpsilonInfoGainAgent(InfoGainAgent):
                 f, v = random.choice(unasked_pairs)
                 return "ask", f, v
 
-        # Greedy choice via InfoGain
+        # Usual greedy play of Infogain
         return super().take_turn()

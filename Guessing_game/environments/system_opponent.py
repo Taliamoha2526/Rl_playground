@@ -2,7 +2,6 @@ import random
 import pandas as pd
 
 class SystemOpponent:
-
     def __init__(self, characters_df, secret_character_name=None):
         self.df = characters_df
         if secret_character_name and secret_character_name in self.df.index:

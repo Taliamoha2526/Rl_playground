@@ -9,15 +9,13 @@ class InfoGainAgent(BaseAgent):
         super().__init__(search_space, max_steps)
 
     def take_turn(self):
-        valid_candidates = self.search_space[
-            ~self.search_space.index.isin(self.rejected)
-        ]
+        valid_candidates = self.search_space[~self.search_space.index.isin(self.rejected)]
         total_candidates = len(valid_candidates)
 
         if total_candidates == 0:
             return "error", "No valid candidates remain."
 
-        # End-game or remaining = 1
+        # End-game trigger
         turns_left = self.max_steps - self.step_counter
         if total_candidates <= turns_left or total_candidates <= 2:
             return "guess", valid_candidates.sample(1).iloc[0]
@@ -28,7 +26,7 @@ class InfoGainAgent(BaseAgent):
         for feature in self.search_space.columns:
             if feature in self.asked_features:
                 continue
-
+            #Calculate entropy based on feature split
             unique_vals = self.search_space[feature].dropna().unique()
             for val in unique_vals:
                 if (feature, val) in self.history:

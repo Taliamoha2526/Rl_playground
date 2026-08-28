@@ -4,23 +4,28 @@ from Guessing_game.analytics.dashboard import plot_comparative_dashboard
 from Guessing_game.environments.system_opponent import SystemOpponent
 
 
-def run_benchmark_simulation(
-    agent_dict, characters_df, num_epochs=100, max_steps=20
-):
+def run_benchmark_simulation(agent_dict, characters_df, num_epochs=100, max_steps=20):
+    """ Runs simulation for all agents on the same character to assess performance.
+    Stores results for each run.
+    parameters:
+    agent_dict: dictionary of agents to be included in the simulation
+    characters_df: the search space of characters
+    num_epochs: number of epochs
+    max_steps: maximum number of steps in each game
+    returns:
+    df_results: summary of each agent's performance and style."""
     all_logs = []
 
-    print(
-        f"\nStarting Comparative Benchmark: {len(agent_dict)} Agents over {num_epochs} Epochs...\n"
-    )
+    print(f"\nStarting Comparative Benchmark: {len(agent_dict)} Agents over {num_epochs} Epochs...\n" )
 
     for epoch in range(1, num_epochs + 1):
+        #Choose random character for each epoch.
         random.seed(epoch)
         secret_name = random.choice(characters_df.index)
 
         for agent_name, agent_cls in agent_dict.items():
-            opponent = SystemOpponent(
-                characters_df, secret_character_name=secret_name
-            )
+            opponent = SystemOpponent(characters_df, secret_character_name=secret_name)
+
             agent = agent_cls(characters_df, max_steps=max_steps)
 
             epoch_data = {
@@ -36,14 +41,10 @@ def run_benchmark_simulation(
             }
 
             found = False
-
-            while (
-                not found
-                and agent.step_counter < agent.max_steps
-                and len(agent.search_space) > 0
-            ):
+            #Cue to keep playing
+            while (not found and agent.step_counter < agent.max_steps and len(agent.search_space) > 0):
                 action = agent.take_turn()
-
+                #Logging agent logic errors
                 if action[0] == "error":
                     epoch_data["outcome"] = "CONTRADICTION_ERROR"
                     break
@@ -61,9 +62,7 @@ def run_benchmark_simulation(
                         epoch_data["outcome"] = "SUCCESS"
                     else:
                         agent.rejected.add(guess_idx)
-                        agent.search_space = agent.search_space[
-                            agent.search_space.index != guess_idx
-                        ]
+                        agent.search_space = agent.search_space[agent.search_space.index != guess_idx]
 
                 elif action[0] == "ask":
                     epoch_data["questions_asked"] += 1
@@ -80,19 +79,9 @@ def run_benchmark_simulation(
 
     df_results = pd.DataFrame(all_logs)
 
-    summary = (
-        df_results.groupby("agent")
-        .agg(
-            Win_Rate=(
-                "won",
-                lambda x: f"{(x.sum() / len(x)) * 100:.1f}%",
-            ),
-            Avg_Steps=("steps", "mean"),
-            Questions_Asked=("questions_asked", "mean"),
-            Guesses_Made=("guesses_made", "mean"),
-        )
-        .reset_index()
-    )
+    summary = (df_results.groupby("agent").agg( Win_Rate=("won",lambda x: f"{(x.sum() / len(x)) * 100:.1f}%"),
+            Avg_Steps=("steps", "mean"), Questions_Asked=("questions_asked", "mean"),
+            Guesses_Made=("guesses_made", "mean")).reset_index())
 
     print("                      BENCHMARK SUMMARY                      ")
     print(summary.to_string(index=False))

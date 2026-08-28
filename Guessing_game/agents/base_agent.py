@@ -11,24 +11,20 @@ class BaseAgent:
         self.rejected = set()
 
     def get_valid_random_guess(self):
-        valid_candidates = self.search_space[
-            ~self.search_space.index.isin(self.rejected)
-        ]
+        #Rejected options are excluded.
+        valid_candidates = self.search_space[~self.search_space.index.isin(self.rejected)]
         if valid_candidates.empty:
             return None
         return valid_candidates.sample(1).iloc[0]
 
     def update_search_space(self, feature, value, response):
         if response:
-            self.search_space = self.search_space[
-                self.search_space[feature] == value
-            ]
+            #Search space is updated by corresponding feature values in case answer is yes.
+            self.search_space = self.search_space[self.search_space[feature] == value]
             self.asked_features.add(feature)
         else:
-            self.search_space = self.search_space[
-                (self.search_space[feature] != value)
-                | (self.search_space[feature].isna())
-            ]
+            #Search space is updated by opposite feature values in case answer is no.
+            self.search_space = self.search_space[(self.search_space[feature] != value)| (self.search_space[feature].isna())]
             remaining_values = self.search_space[feature].unique()
             if len(remaining_values) <= 1:
                 self.asked_features.add(feature)

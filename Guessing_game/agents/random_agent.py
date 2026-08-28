@@ -7,9 +7,7 @@ class RandomAgent(BaseAgent):
         super().__init__(search_space, max_steps)
 
     def take_turn(self):
-        valid_candidates = self.search_space[
-            ~self.search_space.index.isin(self.rejected)
-        ]
+        valid_candidates = self.search_space[ ~self.search_space.index.isin(self.rejected)]
 
         if len(valid_candidates) <= 1:
             return "guess", self.get_valid_random_guess()

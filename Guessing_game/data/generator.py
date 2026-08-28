@@ -2,6 +2,11 @@ import os
 import random
 import pandas as pd
 def generate_characters(n, save_csv = True):
+    """ Function to generate a character space based on combinations of features values.
+    parameters:
+    n: number of characters to generate
+    save_csv: save the character space to a csv file
+    returns: df of characters"""
     # Define possible values for each feature
     features = {
         "Sex": ["male", "female"],

@@ -25,12 +25,10 @@ def main():
     mode = input("\nEnter choice (1, 2, 3, or 4): ").strip()
 
     if mode == "1":
-        agent_options = {
-            "1": ("Random Agent", RandomAgent),
+        agent_options = { "1": ("Random Agent", RandomAgent),
             "2": ("Cardinality Entropy Agent", EntropicAgent),
             "3": ("Binary InfoGain Agent", InfoGainAgent),
-            "4": ("Epsilon InfoGain Agent", EpsilonInfoGainAgent),
-        }
+            "4": ("Epsilon InfoGain Agent", EpsilonInfoGainAgent)}
 
         if os.path.exists(model_path):
             agent_options["5"] = "DQN RL Agent", lambda space, max_steps=20: RLAgent(space, model_path=model_path, max_steps=max_steps)
@@ -43,7 +41,7 @@ def main():
 
         if agent_choice in agent_options:
             selected_name, agent_factory = agent_options[agent_choice]
-            print(f"\nStarting game watching: {selected_name}...")
+            print(f"\nStarting game : {selected_name}...")
             agent = agent_factory(characters_df, max_steps=20)
         else:
             print("Invalid choice. Defaulting to Cardinality Entropy Agent.")
@@ -52,7 +50,7 @@ def main():
         opponent = SystemOpponent(characters_df)
         found = False
 
-        while (not found and agent.step_counter < agent.max_steps and len(agent.search_space) > 0):
+        while not found and agent.step_counter < agent.max_steps and len(agent.search_space) > 0:
             action = agent.take_turn()
             if action[0] == "error":
                 print(f"Error: {action[1]}")
@@ -116,7 +114,6 @@ def main():
         epochs_input = input("Enter number of simulation epochs (default 100): ").strip()
         num_epochs = int(epochs_input) if epochs_input.isdigit() else 100
 
-        # Build agent pool
         agent_pool = {"Random Agent": RandomAgent,
             "Cardinality Entropy": EntropicAgent,
             "Binary InfoGain": InfoGainAgent,

@@ -4,7 +4,6 @@ import numpy as np
 import gymnasium as gym
 from gymnasium import spaces
 
-
 class GuessWhoEnv(gym.Env):
 
     metadata = {"render_modes": ["human"]}
@@ -26,19 +25,16 @@ class GuessWhoEnv(gym.Env):
 
         self.action_space = spaces.Discrete(self.num_questions + self.num_candidates)
 
-        # Observation Space: Asked history, candidate ratio, and dynamic split ratios per question
-        self.observation_space = spaces.Dict(
-            {
-                "asked_mask": spaces.MultiBinary(self.num_questions),
-                "remaining_ratio": spaces.Box(low=0.0, high=1.0, shape=(1,), dtype=np.float32),
-                "split_ratios": spaces.Box(low=0.0, high=1.0, shape=(self.num_questions,), dtype=np.float32),
-            }
-        )
+        # Observation Space: Asked history, remaining candidate ratio, and dynamic split ratios per question
+        self.observation_space = spaces.Dict({"asked_mask": spaces.MultiBinary(self.num_questions),
+            "remaining_ratio": spaces.Box(low=0.0, high=1.0, shape=(1,), dtype=np.float32),
+            "split_ratios": spaces.Box(low=0.0, high=1.0, shape=(self.num_questions,), dtype=np.float32)})
 
         self.reset()
 
     def reset(self, seed=None, options=None):
         super().reset(seed=seed)
+        #Ensure reset to new episode/game.
         self.secret_idx = random.randint(0, self.num_candidates - 1)
         self.secret_character = self.df.iloc[self.secret_idx]
 
@@ -63,11 +59,8 @@ class GuessWhoEnv(gym.Env):
                     matches = (active_df[feat] == val).sum()
                     split_ratios[i] = matches / rem_count
 
-        return {
-            "asked_mask": self.asked_mask.copy(),
-            "remaining_ratio": rem_ratio,
-            "split_ratios": split_ratios,
-        }
+        return {"asked_mask": self.asked_mask.copy(),
+            "remaining_ratio": rem_ratio, "split_ratios": split_ratios}
 
     def step(self, action):
         self.step_counter += 1
@@ -115,7 +108,7 @@ class GuessWhoEnv(gym.Env):
                 reward = -5.0
                 self.candidate_mask[guess_idx] = 0
 
-        # Auto-terminate if target is isolated
+        # Auto terminate if search space is narrowed to target but not yet terminated.
         if self.candidate_mask.sum() == 1 and not terminated:
             rem_idx = np.where(self.candidate_mask == 1)[0][0]
             if rem_idx == self.secret_idx:
