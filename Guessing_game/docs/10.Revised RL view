@@ -1,0 +1,124 @@
+#Decoupling Guessing From Asking
+
+By this point, the environment had already been through several rounds of surgery.
+
+The action space had been rebalanced;
+
+The observation had settled on dynamic split ratios;
+
+The reward had moved from linear elimination to information gain;
+
+Training and evaluation had been split into two separate horizons;
+
+On paper, the experiment looked done.
+
+Then I actually played against it;
+
+
+# What I Noticed by Playing, Not by Reading Metrics
+
+Win rate and average steps had told me the agent was learning to do something, but I couldn't exactly figure what and how.
+
+Playing a live game answered my questions;
+
+The agent asked reasonable early questions.
+Sex, region, hair color, industry.
+The candidate pool dropped in a way that looked like real deduction.
+
+But near the end of one game, something stood out:
+
+> Step 1: Is Sex = female? → No (1811 remaining)
+
+> Step 19: Is Sex = male? → Yes (still 2 remaining)
+
+Eighteen steps after learning the secret wasn't female, the agent spent one of its last two turns re-confirming that it was male.
+
+Nothing changed;
+
+No candidates were eliminated;
+
+It had already known the answer implicitly since step 1, but had no way of representing that.
+
+It ran out of turns one step short of separating the last two candidates, and guessed wrong.
+
+That single transcript exposed two separate problems I had been treating as one.
+
+# Problem One: The agent wasn't tracking what it already knew.
+
+The asked mask only recorded literal (feature, value) pairs.
+
+"Sex = female" and "Sex = male" were two different entries in that list.
+
+Answering one told the agent nothing about the other, even though logically, once a feature's value is implied for every remaining candidate, asking about it again cannot produce new information.
+
+The environment had no concept of a "resolved feature" only a flat history of exact questions asked.
+
+# Problem Two: The agent couldn't actually win by guess
+
+This one took longer to see, because it wasn't a bug so much as a structural mismatch I had built in from the start.
+
+The whole point of the split-ratio representation was to keep the agent blind to candidate features, so it would learn a transferable questioning strategy rather than memorizing the dataset;
+
+That part worked as intended.
+
+But the action space still included a guess action for every individual candidate,  and the reward still gave +10 for guessing correctly.
+
+That meant the agent was being asked to solve an identity dependent problem using an observation deliberately designed to contain no identity information;
+
+It structurally could not learn that part, no matter how much training it received.
+
+The agent had never been able to win in the sense of identifying the right guess;
+
+because the representation that made asking learnable was the same one that made guessing unlearnable.
+
+# Reframing the Win Condition
+
+Holding the assumption that the characters in this dataset are unique,
+
+If no two candidates share every feature value;
+then "the pool has narrowed to one candidate" and "every feature of the secret is now known" are the same event.
+
+Guessing isn't a separate skill sitting at the end of a good game, it's just the label we put on what elimination already accomplished;
+
+There was nothing left for a learnt action to decide.
+
+That reframing dissolved both problems from the same root fix.
+
+# The Fix
+
+Guessing came out of the action space entirely:
+
+The environment now only exposes question actions.
+
+There is no guess-action dimension and no premature-guess penalty to enforce.
+
+Resolved features get folded into the asked_mask;
+
+After every step, the environment checks each feature:
+
+If the active candidate pool has converged on a single value for it;
+
+-whether that came from directly asking, or purely as fallout from other eliminations;
+every question tied to that feature is marked asked, even the ones never literally asked.
+
+
+The win condition stayed exactly where it already was:
+
+The pool narrowing to one candidate — but is now understood as the only condition, not one path among several.
+
+Guessing itself moved out of the learned policy and into the game logic;
+
+once elimination hits a singleton, there's nothing left to decide-just an answer to report.
+
+# What This Changed in the Experiment
+
+The action space shrank significantly:
+
+From thousands of guess-actions plus a handful of questions, down to just the questions.
+
+That alone should make exploration far more tractable than it ever was in the original design.
+
+More importantly, the reward signal is now fully attributable to the thing I actually wanted to measure:
+
+how well the agent asks.
+

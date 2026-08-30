@@ -1,3 +1,4 @@
+import numpy as np
 from Guessing_game.agents.base_agent import BaseAgent
 from Guessing_game.environments.gym_env import GuessWhoEnv
 from stable_baselines3 import DQN
@@ -16,7 +17,7 @@ class RLAgent(BaseAgent):
                 raise RuntimeError(f"Failed to load RL model from '{model_path}': {e}") from e
 
     @classmethod
-    def train_model(cls, characters_df, total_timesteps=150_000,save_path="models/dqn_guess_who.zip" ):
+    def train_model(cls, characters_df, total_timesteps=100_000,save_path="models/dqn_guess_who.zip" ):
         print(f"\n--- Training Feature-Ratio RL Agent ({total_timesteps} timesteps) ---")
         env = GuessWhoEnv(characters_df, max_steps=100)
 
@@ -44,6 +45,9 @@ class RLAgent(BaseAgent):
             if (f, v) in self.history:
                 self.gym_env.asked_mask[idx] = 1
 
+        # Fold in any resolved feature
+        self.gym_env.sync_resolved_features()
+
         obs = self.gym_env._get_obs()
 
         # Predict action based on the observations
@@ -56,15 +60,13 @@ class RLAgent(BaseAgent):
         if rem_count == 0:
             return "error", "No remaining candidates to guess from."
 
-        # End game trigger
+        # Guessing by the end of the game( already locked down target/ on the final step)
         if rem_count == 1 or (self.step_counter >= self.max_steps - 1 and rem_count <= 5):
             guess_character = rem_candidates.iloc[0]
             return "guess", guess_character
 
-        # Use the valid questions left
-        is_valid_question = action < self.gym_env.num_questions and self.gym_env.asked_mask[action] == 0
-
-        if not is_valid_question:
+        # The action space for unasked/ unresolved questions
+        if self.gym_env.asked_mask[action] == 1:
             unasked = [i for i in range(self.gym_env.num_questions) if self.gym_env.asked_mask[i] == 0]
             if unasked:
                 # Pick unasked question with split ratio closest to 0.5
@@ -72,7 +74,7 @@ class RLAgent(BaseAgent):
                 unasked_ratios = {i: abs(0.5 - ratios[i]) for i in unasked}
                 action = min(unasked_ratios, key=unasked_ratios.get)
             else:
-                # Make a guess when no informative questions left to ask
+                # Guess when there's no informative questions left to ask
                 return "guess", rem_candidates.iloc[0]
 
         feature, value = self.gym_env.questions[action]
