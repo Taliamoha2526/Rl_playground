@@ -1,4 +1,3 @@
-import numpy as np
 from Guessing_game.agents.base_agent import BaseAgent
 from Guessing_game.environments.gym_env import GuessWhoEnv
 from stable_baselines3 import DQN
@@ -11,7 +10,10 @@ class RLAgent(BaseAgent):
         self.model = None
         # Initialize environment and load if there is existing agent.
         if model_path:
-            self.model = DQN.load(model_path)
+            try:
+                self.model = DQN.load(model_path)
+            except Exception as e:
+                raise RuntimeError(f"Failed to load RL model from '{model_path}': {e}") from e
 
     @classmethod
     def train_model(cls, characters_df, total_timesteps=150_000,save_path="models/dqn_guess_who.zip" ):
@@ -51,24 +53,27 @@ class RLAgent(BaseAgent):
         rem_candidates = self.search_space[~self.search_space.index.isin(self.rejected)]
         rem_count = len(rem_candidates)
 
+        if rem_count == 0:
+            return "error", "No remaining candidates to guess from."
+
         # End game trigger
         if rem_count == 1 or (self.step_counter >= self.max_steps - 1 and rem_count <= 5):
             guess_character = rem_candidates.iloc[0]
             return "guess", guess_character
 
-        # Masking to force question selection while candidates > 1
-        if rem_count > 1 and action >= self.gym_env.num_questions:
+        # Use the valid questions left
+        is_valid_question = action < self.gym_env.num_questions and self.gym_env.asked_mask[action] == 0
+
+        if not is_valid_question:
             unasked = [i for i in range(self.gym_env.num_questions) if self.gym_env.asked_mask[i] == 0]
             if unasked:
                 # Pick unasked question with split ratio closest to 0.5
                 ratios = obs["split_ratios"]
                 unasked_ratios = {i: abs(0.5 - ratios[i]) for i in unasked}
                 action = min(unasked_ratios, key=unasked_ratios.get)
+            else:
+                # Make a guess when no informative questions left to ask
+                return "guess", rem_candidates.iloc[0]
 
-        if action < self.gym_env.num_questions:
-            feature, value = self.gym_env.questions[action]
-            return "ask", feature, value
-        else:
-            guess_idx = action - self.gym_env.num_questions
-            guess_character = self.gym_env.df.iloc[guess_idx]
-            return "guess", guess_character
+        feature, value = self.gym_env.questions[action]
+        return "ask", feature, value

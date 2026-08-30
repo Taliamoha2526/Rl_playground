@@ -1,5 +1,4 @@
 import math
-import random
 import numpy as np
 import gymnasium as gym
 from gymnasium import spaces
@@ -23,6 +22,13 @@ class GuessWhoEnv(gym.Env):
         self.num_questions = len(self.questions)
         self.num_candidates = len(self.df)
 
+        #Use a question matrix to mask asked questions
+        self.question_matrix = np.zeros((self.num_candidates, self.num_questions), dtype=np.float32)
+        self.nan_masks = np.zeros((self.num_candidates, self.num_questions), dtype=bool)
+        for j, (feat, val) in enumerate(self.questions):
+            self.question_matrix[:, j] = (self.df[feat] == val).values
+            self.nan_masks[:, j] = self.df[feat].isna().values
+
         self.action_space = spaces.Discrete(self.num_questions + self.num_candidates)
 
         # Observation Space: Asked history, remaining candidate ratio, and dynamic split ratios per question
@@ -34,8 +40,8 @@ class GuessWhoEnv(gym.Env):
 
     def reset(self, seed=None, options=None):
         super().reset(seed=seed)
-        #Ensure reset to new episode/game.
-        self.secret_idx = random.randint(0, self.num_candidates - 1)
+        #Reset seed in each new game.
+        self.secret_idx = int(self.np_random.integers(0, self.num_candidates))
         self.secret_character = self.df.iloc[self.secret_idx]
 
         self.candidate_mask = np.ones(self.num_candidates, dtype=np.int8)
@@ -51,13 +57,10 @@ class GuessWhoEnv(gym.Env):
         # Dynamic Split Ratio
         split_ratios = np.zeros(self.num_questions, dtype=np.float32)
         if rem_count > 0:
-            active_df = self.df.iloc[np.where(self.candidate_mask == 1)[0]]
-            for i, (feat, val) in enumerate(self.questions):
-                if self.asked_mask[i] == 1:
-                    split_ratios[i] = 0.0
-                else:
-                    matches = (active_df[feat] == val).sum()
-                    split_ratios[i] = matches / rem_count
+            #Using the dot of the question matrix mask
+            matches = self.candidate_mask.astype(np.float32) @ self.question_matrix
+            split_ratios = (matches / rem_count).astype(np.float32)
+            split_ratios[self.asked_mask == 1] = 0.0
 
         return {"asked_mask": self.asked_mask.copy(),
             "remaining_ratio": rem_ratio, "split_ratios": split_ratios}
@@ -85,10 +88,11 @@ class GuessWhoEnv(gym.Env):
                 self.asked_mask[action] = 1
                 is_match = self.secret_character[feature] == value
 
+                match_bool = self.question_matrix[:, action].astype(bool)
                 if is_match:
-                    match_cond = (self.df[feature] == value).values
+                    match_cond = match_bool
                 else:
-                    match_cond = ((self.df[feature] != value) | (self.df[feature].isna())).values
+                    match_cond = (~match_bool) | self.nan_masks[:, action]
 
                 self.candidate_mask = self.candidate_mask & match_cond.astype(int)
                 rem_after = max(1, self.candidate_mask.sum())
@@ -98,7 +102,7 @@ class GuessWhoEnv(gym.Env):
                     bits_gained = math.log2(rem_before / rem_after)
                     reward += bits_gained
 
-        # Guessing
+        # Guessing rewards
         else:
             guess_idx = action - self.num_questions
             if guess_idx == self.secret_idx:
