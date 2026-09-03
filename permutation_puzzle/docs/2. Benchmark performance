@@ -1,0 +1,146 @@
+# Benchmarking the Agents
+
+Once the initial agents were implemented, the next step was not to immediately scale the environment.
+
+I first built a small benchmark loop around the four element version of the puzzle so that the agents could be evaluated against one another under the same conditions.
+
+The goal was simple:
+
+> Before making the problem harder, establish a way to measure whether the agents were actually improving.
+
+---
+
+## Initial Benchmark
+
+The benchmark repeatedly reset the environment, allowed each agent to play independently, and recorded the history of each episode.
+
+For every game, the important information was:
+
+* Which agent was playing
+* Number of steps taken
+* Score received at each step
+* Whether the puzzle was solved
+* Complete sequence of guesses and feedback
+
+The first experiments focused on several different visualizations:
+
+* Convergence over steps
+* Distribution of steps required to solve
+* Score progression
+* Average performance across games
+
+These initial plots were useful for identifying broad differences between the agents, but they also exposed a problem with how the results were being visualized.
+
+---
+
+## The Problem With Averaged Progression
+
+Initially, I plotted score progression using averaged results across episodes.
+
+This produced jagged and somewhat misleading curves.
+
+The problem was that an individual game has a meaningful sequence, but averaging games together does not necessarily preserve that structure.
+
+Different games can:
+
+* solve at different steps,
+* receive different feedback sequences,
+* terminate at different points,
+* and follow completely different trajectories.
+
+As a result, an averaged per step progression can give the appearance of a smooth "learning" or "convergence" process even though the agents are not actually learning during an episode.
+
+This made me reconsider what I actually wanted the benchmark to communicate.
+
+Rather than trying to visualize the exact score trajectory of every agent, I wanted the plots to answer two simpler questions:
+
+1. How quickly does each agent solve the puzzle?
+2. How consistently does it solve the puzzle?
+
+---
+
+## Final Benchmark Visualizations
+
+I therefore moved away from the per-step average progression plots and settled on two primary visualizations.
+
+###1. Survival Curve — Percentage Solved by Step
+
+The first visualization tracks the percentage of games that have been solved as the number of steps increases.
+
+Instead of asking what the average score is at a particular step, this asks:
+
+> By this point in the game, what proportion of episodes has already been solved?
+
+This gives a much clearer picture of the agent's solving speed and allows agents with different episode lengths to be compared naturally.
+
+An agent whose curve rises quickly solves a large proportion of its games in relatively few steps.
+
+---
+
+###2. Consistency — Average Steps to Success
+
+The second visualization compares the average number of steps required for successful games.
+
+This provides a simple measure of efficiency:
+
+> When the agent succeeds, how many guesses does it generally need?
+
+Together, the two plots capture complementary properties.
+
+The survival curve shows the distribution of solving speed, while the average steps comparison provides a compact measure of overall efficiency.
+
+---
+
+## Using the Benchmark to Refine the Agents
+
+The benchmark was not only used for the final comparison.
+
+Running the agents repeatedly on the small four element environment exposed smaller implementation and reasoning issues that were difficult to notice from individual games.
+
+This created a useful development loop:
+
+Implement
+    ↓
+Run benchmark
+    ↓
+Inspect behaviour
+    ↓
+Visualize results
+    ↓
+Identify issues
+    ↓
+Make targeted changes
+    ↓
+Benchmark again
+
+The small search space made this particularly useful because the agents could be tested rapidly without the computational cost of a large permutation space.
+
+After several rounds of testing and refinement, the benchmark became stable enough to serve as a baseline for the next stage.
+
+---
+
+# Scaling the Search Space
+
+Once the agents and evaluation framework were behaving consistently on four elements, I increased the size of the permutation space.
+
+This was an important transition because the difficulty of the problem grows factorially.
+
+With four elements:
+
+4! = 24 possible permutations exist.
+
+With ten elements:
+
+10! = 3,628,800 possible permutations exist.
+
+The agents therefore went from operating in a tiny search space where relatively simple heuristics could perform well to a space where inefficient search strategies became much more apparent.
+
+The purpose of the scaling experiment was not simply to see whether the agents could still solve the puzzle.
+
+It was to determine:
+
+> How well do the strategies scale as the search space grows?
+
+The same benchmark framework could now be applied across increasing puzzle sizes, allowing the performance of the Random, Systematic, Logic, and Hybrid agents to be compared under increasingly difficult conditions.
+
+The four element environment had therefore served as more than a toy example. It became the controlled environment in which the agents and evaluation methodology were developed before testing their ability to handle the much larger ten-element search space.

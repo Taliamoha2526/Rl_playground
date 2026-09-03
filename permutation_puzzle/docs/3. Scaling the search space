@@ -1,0 +1,231 @@
+# Scaling the Agents
+
+With the benchmark established on the four element environment, the next question was whether the strategies would continue to work as the search space increased.
+
+The initial results were encouraging.
+
+The Systematic and Hybrid agents performed particularly well, achieving high success rates while requiring relatively few steps.
+
+The Hybrid Agent was the strongest candidate conceptually because it combined several useful mechanisms:
+
+* random exploration,
+* memory of previous guesses,
+* consistency checking,
+* local search,
+* and information-based candidate selection.
+
+At this stage, the expectation was straightforward: if each individual strategy contributed something useful, combining them should produce the strongest overall agent.
+
+The four element results seemed to support that assumption.
+
+The real test, however, was scalability.
+
+---
+
+## Increasing the Search Space
+
+The environment was increased from four to ten elements.
+
+This changed the search space from:
+
+4! = 24
+
+to:
+
+10! = 3,628,800
+
+This was not simply a larger version of the same problem. The factorial growth meant that assumptions which were harmless could become serious bottlenecks.
+
+The first benchmark at this scale exposed exactly that.
+
+The agents began failing completely, with sampling errors and situations where they could no longer identify viable candidates.
+
+This was the first indication that the original strategies were not actually scaling with the structure of the problem.
+
+---
+
+# Two Different Scaling Problems
+
+The failures came from two distinct sources.
+
+### Search space representation
+
+Some of the agents attempted to explicitly construct large portions of the permutation space.
+
+AT the current scale, representing millions of permutations as Python objects becomes unnecessarily expensive.
+
+The solution was to move away from explicitly materializing the complete permutation space and instead use random generation of candidates.
+
+This allowed the agents to explore the space without requiring the entire search space to exist in memory.
+
+---
+
+### Incorrect positional assumptions
+
+The second problem was more fundamental.
+
+Some of the agents were treating changes in the score as evidence about individual positions.
+
+For example, a decrease after swapping two elements could be interpreted as:
+
+> "The original arrangement at these positions must have been correct."
+
+But the feedback only reports the total number of correctly positioned elements.
+
+A score decrease does not tell the agent which position caused the decrease.
+
+Two incorrect positions can interact in a way that changes the total score.
+
+Consequently, rigidly locking positions based on these local score changes could eliminate the true solution from consideration.
+
+This revealed an important property of the environment:
+
+> The feedback provides a global constraint, not a direct explanation of individual positions.
+
+The agents therefore needed to reason about entire candidate permutations rather than permanently assigning correctness to individual positions based on a single observation.
+
+---
+
+# Refactoring the Search
+
+The next iteration addressed both problems.
+
+The agents stopped relying on full in memory representations of the permutation space and instead generated candidates randomly.
+
+At the same time, positional locking was replaced by a more general consistency condition.
+
+For every previous guess:
+
+candidate
+    ↓
+compare positions with previous guess
+    ↓
+count matching positions
+    ↓
+must equal recorded feedback
+
+This changed the agent's reasoning from:
+
+> "I think this position is correct."
+
+to:
+
+> "This entire candidate is still compatible with everything I have observed."
+
+That was a much safer representation of the information available from the environment.
+
+---
+
+# The Unexpected Result
+
+After refactoring the agents, a new benchmark was run on the ten-element environment.
+
+The result was surprising.
+
+The Logic Agent, which had previously appeared less sophisticated than the Hybrid Agent, suddenly became the strongest performer.
+
+This was the opposite of what the original design intuition predicted.
+
+The Hybrid Agent had been deliberately constructed to combine the strengths of the other strategies, so it seemed reasonable to expect it to dominate.
+
+The benchmark had therefore revealed something that was not obvious from looking at the architectures alone.
+
+---
+
+#  Understanding the Logic Model Paradox
+
+The difference came down to how the agents searched for their next candidate.
+
+The Logic Agent retained a strong local-search mechanism.
+
+Rather than repeatedly sampling arbitrary permutations from the entire space, it generated new candidates by making a small number of swaps around its current best-known permutation.
+
+This meant that its search remained concentrated around promising regions of the space.
+
+The Systematic and Hybrid agents, meanwhile, had become heavily dependent on global random sampling when generating candidates.
+
+Even though a candidate might satisfy all historical constraints, the probability of discovering a useful one through unrestricted random sampling could become very small.
+
+The larger search space therefore amplified the difference between the two strategies.
+
+The result was an important lesson:
+
+> Combining more mechanisms does not automatically produce a better agent. The way those mechanisms interact with the structure of the search space matters.
+
+The Logic Agent was not necessarily more intelligent. Its advantage came from using a search strategy that happened to scale better under the constraints of this particular problem.
+
+---
+
+# Returning to the Hybrid Idea
+
+The benchmark did not invalidate the original Hybrid concept.
+
+Instead, it clarified what the Hybrid Agent was missing.
+
+The useful components were already present:
+
+* historical consistency,
+* memory,
+* local perturbations,
+* candidate generation,
+* information-based selection.
+
+The problem was how candidates were being generated.
+
+The next redesign therefore focused on preserving the Hybrid Agent's overall architecture while replacing its inefficient global search with the more effective local exploration used by the Logic Agent.
+
+This produced the next iteration:
+
+The new approach generates candidate pools primarily by perturbing the best-known state.
+
+Best known permutation
+          ↓
+    Local perturbations
+          ↓
+  Candidate generation
+          ↓
+ Historical consistency
+          ↓
+   Valid candidate pool
+          ↓
+     Information
+          ↓
+      Next guess
+
+
+The important change was that local search and constraint filtering were no longer competing strategies.
+
+They became complementary:
+
+* Local perturbation provides an efficient way of exploring promising regions.
+* Historical consistency prevents the agent from violating known information.
+* Memory prevents unnecessary repetition.
+* Entropy-based selection attempts to choose the most informative candidate among those available.
+
+This was closer to the original goal of the Hybrid Agent: not simply combining multiple heuristics, but combining them in a way that respects the structure of the problem.
+
+---
+
+# What the Scaling Experiment Changed
+
+The four element experiment showed that the agents could solve the puzzle.
+
+The ten element experiment showed that solving the puzzle and scaling the solving strategy are two different problems.
+
+The benchmark made this visible.
+
+It exposed that:
+
+1. A strategy that performs well in a tiny search space may not scale.
+2. Memory is useful only when it represents information in a form the agent can reason with.
+3. Global feedback should be treated as a constraint rather than direct evidence about individual positions.
+4. Local search can become significantly more effective than unrestricted random exploration as the search space grows.
+5. A hybrid architecture is only useful when its components complement one another rather than simply accumulating heuristics.
+
+The next stage is therefore no longer about adding another heuristic to the existing agents.
+
+It is about stepping back and asking a more fundamental question:
+
+> What is the most appropriate algorithm for searching a permutation space when each observation only reveals the number of correctly positioned elements?
+
+That question leads naturally toward constraint-solving, Mastermind style algorithms, information gain, minimax search, and eventually the relationship between this problem and partially observable decision making in reinforcement learning.
