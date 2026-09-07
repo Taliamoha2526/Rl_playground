@@ -8,13 +8,12 @@ def simulate_agents(agents, items, secret_order=None, epochs=100, max_steps=20):
       - histories: dict of each agent's name : list of episode histories (each guess and score pair)
       - results: dict of agent_name : list of steps to success
     """
-    if secret_order is None:
-        secret_order = random.sample(items, len(items))
 
     histories = {agent.__class__.__name__: [] for agent in agents}
     results = {agent.__class__.__name__: [] for agent in agents}
 
     for epoch in range(epochs):
+        secret_order = secret_order if secret_order is not None else random.sample(items, len(items))
         for agent in agents:
             agent.reset()
             episode_history = []
@@ -32,7 +31,7 @@ def simulate_agents(agents, items, secret_order=None, epochs=100, max_steps=20):
                     found = True
 
             histories[agent.__class__.__name__].append(episode_history)
-            results[agent.__class__.__name__].append(steps if found else max_steps)
+            results[agent.__class__.__name__].append((steps, found))
 
     return histories, results
 
@@ -52,7 +51,7 @@ def plot_dashboard(results, max_steps=20):
         solved_counts = []
         total = len(steps_list)
         for step in range(1, max_steps+1):
-            solved = sum(1 for s in steps_list if s <= step)
+            solved = sum(1 for s, found in steps_list if found and s<=step)
             solved_counts.append(100 * solved / total)
         axes[0].plot(range(1, max_steps+1), solved_counts,
                      label=agent_name, color=colors.get(agent_name,"black"))
@@ -64,10 +63,12 @@ def plot_dashboard(results, max_steps=20):
 
     # Plot 2: Average steps it took to win
     agent_names = list(results.keys())
-    data = [results[name] for name in agent_names]
     bar_positions = np.arange(len(agent_names))
     bar_width = 0.6
-    avg_steps = [np.mean(steps) for steps in data]
+    avg_steps = []
+    for name in agent_names:
+        successful_steps = [s for s, found in results[name] if found]
+        avg_steps.append(np.mean(successful_steps) if successful_steps else np.nan)
 
     axes[1].bar(bar_positions, avg_steps, width=bar_width,
                 color=[colors.get(name, "black") for name in agent_names])

@@ -102,11 +102,12 @@ class LogicAgent:
                 return cand
 
         # Use random candidate if the local swaps fail
-        while True:
+        for _ in range(20000):
             cand = tuple(random.sample(self.items, len(self.items)))
             if cand not in self.tried_guesses and self._is_consistent(cand):
                 self.tried_guesses.add(cand)
                 return list(cand)
+        return random.sample(self.items, len(self.items))
 
     def receive_feedback(self, guess, score):
         self.history.append((tuple(guess), score))
@@ -154,7 +155,6 @@ class HybridAgent:
                 cand_tuple = tuple(cand)
                 if cand_tuple not in self.tried_guesses and self._is_consistent(cand_tuple):
                     pool.append(cand_tuple)
-                    self.tried_guesses.add(cand_tuple)
 
         # Uses the systematic agent's global sampling fallback
         attempts = 0
@@ -164,7 +164,6 @@ class HybridAgent:
             # Ensures it is not tried, and consistent with the best guess
             if cand_tuple not in self.tried_guesses and self._is_consistent(cand_tuple):
                 pool.append(cand_tuple)
-                self.tried_guesses.add(cand_tuple)
 
         return pool
 
@@ -201,6 +200,7 @@ class HybridAgent:
             if entropy > max_entropy:
                 max_entropy = entropy
                 best_candidate = cand
+                self.tried_guesses.add(tuple(best_candidate))
 
         return list(best_candidate)
 

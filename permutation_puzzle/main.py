@@ -38,6 +38,8 @@ def main():
             name, object = agents[agent_choice]
             print(f"\n Starting game against: {name}")
             agent = object(items)
+        else:
+            raise ValueError("Please enter vaild agent!")
         play_with_human(agent, items, max_steps=20)
     if mode == "3":
         epochs_choice = input("\n Enter number of simulation epochs ").strip()
