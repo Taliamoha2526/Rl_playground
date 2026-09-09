@@ -1,0 +1,77 @@
+# Building the Environment
+
+Turning the design into code meant an environment that trains on plain integers, and an agent wrapper around it that speaks in the actual items;
+
+the same kind of boundary the project had already drawn elsewhere between internal reasoning and external interface.
+
+That wrapper was also built to match the existing agents' code structure exactly, so a trained policy could eventually sit in the same benchmark as designed agents.
+
+A few decisions carried straight over from the audit:
+
+the secret is redrawn on every episode, not reused, and a solved episode is now distinguished from a timed out one at the environment level, the same distinction the corrected benchmark makes.
+
+One idea didn't survive contact with implementation.
+
+Automatically growing the puzzle size during training, ran into a real limitation:
+
+a policy network's input and output shapes are fixed at construction, and changing the puzzle size mid training changes both.
+
+That's real design work on its own, so it was shelved rather than shipped half working.
+
+---
+
+## The Observation That Kept Changing
+
+The one piece that went through several honest attempts was the feature meant to summarize the guess history;
+
+which items are still plausible where.
+
+The first version only reacted to a guess that scored exactly zero, which is correct but weak;
+
+most guesses score above zero, and those contributed nothing at all.
+
+The next attempt borrowed directly from the Hybrid Agent's candidate-pool logic:
+
+sample permutations, bias them toward the current best guess, keep the ones consistent with history, and read off a real distribution.
+
+It worked, but it also brought back exactly the kind of complexity the project had already spent a full cycle moving away from on the heuristic side;
+
+a sampling budget, and a hit rate to worry about.
+
+A simpler, fully deterministic version was tried next.
+
+The zero score restriction was kept, with one additional check per cell:
+
+swap the item into that position on the current best guess and test that single result against the full history.
+
+No sampling. Nothing to tune.
+
+Tested directly, it collapsed entirely;
+
+every cell was ruled out, including the secret's actual placements.
+
+The reason was the same one already learned once, in a different shape:
+
+demanding that one arbitrarily modified guess satisfy every accumulated constraint at once is an extremely strict bar,
+
+and there was no reason it should ever pass.
+
+> One failed candidate proves that candidate doesn't work. It doesn't prove nothing does.
+
+The honest choice was to drop that second check rather than patch it further,
+
+and accept the simpler, weaker signal as a known trade off instead of a partially fixed one.
+
+---
+
+## Where This Leaves Things
+
+Nothing has actually been tested yet.
+
+The real test is still ahead:
+
+* Train the policy;
+
+* run it through the same benchmark as the four heuristic agents;
+
+* and see whether a learned swap strategy can actually beat what Logic and Hybrid already do by hand.

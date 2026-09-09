@@ -1,0 +1,79 @@
+# Preparing for Reinforcement Learning
+
+The scaling experiment ended with an intention:
+
+Stop patching heuristics and look at algorithms built for constraint satisfaction and information gain;
+
+reinforcement learning among them.
+
+Before building anything new, the existing system got a hard look first.
+
+> A learning agent trained on top of a flawed environment won't reveal the flaw.
+
+> It will just learn to exploit it.
+
+---
+
+## What I Found in Between
+
+A few issues had been sitting quietly in the existing code:
+
+* The Hybrid Agent was marking every candidate it merely considered as tried, not just the one it submitted.
+
+  It was silently shrinking its own future search space every step;
+
+  and possibly providing a second, independent explanation for why it lost to the Logic Agent at scale.
+
+* Several agents relied on unbounded search loops.
+
+  It was harmless at the current scale, but a real liability once similar logic would need to run unattended, potentially millions of times inside a training loop.
+
+* The survival curve plots conflated a genuine last-step solve with a plain timeout.
+
+  This made every agent's curve misleadingly hit 100% at the final step.
+
+Each of these mattered less as isolated bugs and more as a signal:
+
+the project's foundation needed to be trustworthy before a learning agent was allowed to train on top of it.
+
+---
+
+## Reframing the Puzzle
+
+With that settled, the real design question was how to describe this puzzle in terms an RL algorithm understands.
+
+The secret is never observed directly, only a single number per guess;
+
+the same **"global constraint, not local evidence" property the scaling experiment had already learned the hard way.
+
+Whatever the RL agent would see needed to respect that same lesson, not quietly reintroduce it.
+
+The harder problem was the action space.
+
+The obvious action, submitting a full permutation creates a Discrete(n!) output space, which explodes exactly the way the search space itself does.
+
+Three ways of shrinking it were considered:
+
+* build the guess step by step,
+
+* let the environment offer a pool of candidates to choose from,
+
+* or restrict the action to a single swap on the current best guess.
+
+The swap option was chosen first:
+
+a small, ordinary action space, and a direct generalization of what the Logic Agent already does by hand, just with the choice of swap handed to a learned policy instead of random swaps.
+
+Reward design carried the same caution as the observation.
+
+Shaping reward directly from the guess to guess score change would have been the most tempting option and;
+
+on reflection the exact mistake already unlearned once before:
+
+rewarding something that looks like progress but isn't necessarily reliable evidence of it.
+
+Reward was kept simple instead:
+
+a small penalty per step, and a bonus on solving that rewards getting there faster.
+
+With the foundation checked and the problem reframed in RL terms, the next step was to actually build it.

@@ -1,0 +1,323 @@
+# Permutation Puzzle
+
+> **The second environment in my RL Playground: a small puzzle that became much more complicated once I asked an agent to solve it.**
+
+The RL Playground is my attempt to learn reinforcement learning by building environments rather than only studying algorithms in isolation.
+
+The idea is simple:
+
+keep creating small worlds, give agents different ways of interacting with them, measure what happens, and gradually move from hand designed behavior toward actual learning.
+
+The first environment was a guessing game.
+
+For the second one, I wanted something that looked simple on the surface but would force me to think differently about:
+
+search, memory, constraints, and information.
+
+That's where the Permutation Puzzle came from.
+
+---
+
+## The Idea
+
+The puzzle is deliberately simple.
+
+There is a hidden permutation of a set of items.
+
+The agent submits a permutation as a guess, and receives only one piece of information:
+
+how many elements are in the correct position.
+
+For example, if the hidden permutation is:
+
+[A, B, C, D]
+
+and the agent guesses:
+
+[A, C, D, B]
+
+the feedback is:
+
+1
+
+The agent never gets told which position was correct.
+
+That small restriction is what makes the problem interesting.
+
+I first thought of it as a straightforward guessing problem.
+
+Once I started building agents, it became a problem of maintaining constraints, deciding which guesses were useful, and dealing with a search space that grows factorially.
+
+And I wanted to see how far I could take it.
+
+---
+
+## Why I Built It Anyway
+
+At the beginning, I did not have a complete algorithm for solving the puzzle.
+
+I also didn't know exactly how I wanted the final agent to work.
+
+That wasn't a reason to wait.
+
+One of the main reasons I started the RL Playground was to practice taking an idea that I don't completely know how to implement yet, and trying to bring it to life anyway.
+
+So I started with simple agents.
+
+Then I made them more intelligent.
+
+Then I benchmarked them.
+
+Then I made the problem bigger.
+
+Then they broke.
+
+That became the actual experiment.
+
+---
+
+## From Random Guessing to Reasoning
+
+The first agents represented different ways of approaching the same puzzle:
+
+* **Random Agent** — explore the space without reasoning about feedback.
+
+* **Systematic Agent** — maintain previous guesses and reject candidates inconsistent with the observed constraints.
+
+* **Logic Agent** — use the best known guess as a starting point and search locally through swaps.
+
+* **Hybrid Agent** — attempt to combine constraint filtering, local search, and information based selection.
+
+I didn't know beforehand which strategy would win.
+
+In fact, I expected the Hybrid Agent to be the strongest because it combined the ideas of the others.
+
+That assumption became something I could actually test.
+
+---
+
+## Benchmarking Before Scaling
+
+Once the agents were working, I immediately built a benchmark instead of relying on individual games.
+
+I wanted to know:
+
+* How quickly does each agent solve the puzzle?
+
+* How consistent is it?
+
+* How does performance change as the number of elements increases?
+
+* Does a more complicated strategy actually perform better?
+
+The benchmark went through a few iterations itself.
+
+Some visualizations were useful. Others weren't.
+
+Aggregating game histories produced noisy curves that looked more meaningful than they actually were;
+
+so I changed the evaluation to focus on solve rate by step and average steps to success.
+
+The benchmark became part of the development process rather than something I only ran at the end.
+
+It gave me a way to see what the agents were actually doing.
+
+---
+
+## Then I Increased the Search Space
+
+With four elements, there are only:
+
+4! = 24 possible permutations.
+
+The agents performed well enough that I decided to push the problem to ten elements:
+
+10! = 3,628,800 possible permutations
+
+That change exposed weaknesses that were almost invisible at four elements.
+
+Some early implementations tried to represent the permutation space directly, which obviously became impractical.
+
+Other problems were more subtle.
+
+I had made assumptions about what score changes meant for individual positions;
+
+But the feedback only tells me a total number of correct positions.
+
+A score changing from 3 to 2 does not tell me which position became wrong.
+
+The feedback is a global constraint, not local evidence.
+
+That distinction ended up becoming one of the most important lessons of the entire module.
+
+---
+
+## The Agent I Expected to Win Didn't
+
+The scaling benchmark produced an outcome I wasn't expecting.
+
+The Logic Agent performed dramatically better than the Systematic and Hybrid approaches on the larger problem.
+
+That forced me to look beyond the names I had given the algorithms and examine what they were actually doing.
+
+The Logic Agent was searching locally around its best known guess.
+
+The other approaches relied much more heavily on finding valid candidates through global sampling.
+
+As the constraints accumulated, valid candidates became increasingly rare.
+
+So the supposedly more sophisticated Hybrid Agent was spending its effort searching a huge space for candidates that were becoming increasingly difficult to find.
+
+That was a much more useful result than simply discovering that one agent had a better score.
+
+It told me why my intuition about the algorithm had been wrong.
+
+---
+
+## I Wasn't Done Changing Things
+
+The next stage wasn't a clean implementation of a final design.
+
+I found more problems.
+
+For example, the Hybrid Agent was marking candidates as "tried" when it merely considered them; rather than when it actually submitted them.
+
+It was quietly destroying parts of its own search space.
+
+There were also unbounded search loops that were acceptable in a small experiment but became questionable once I imagined the same logic running millions of times inside a training loop.
+
+Even the benchmark itself had a flaw:
+
+the survival curve could treat a timeout on the final step as if the agent had successfully solved the puzzle.
+
+So before putting reinforcement learning on top of the environment, I stopped and audited the foundation.
+
+That led to a principle I now want to carry into the rest of the playground:
+
+> **A learning agent trained on a flawed environment won't reveal the flaw. It will just learn to exploit it.**
+
+---
+
+## From Heuristics to Reinforcement Learning
+
+Once the environment was trustworthy enough, I started asking a different question:
+
+**How would I represent this puzzle so that an RL agent could actually learn to solve it?**
+
+The obvious action, submitting an entire permutation gives an action space of:
+
+n!
+
+That becomes unreasonable very quickly.
+
+So instead of asking the policy to construct an entire permutation in one action, I started with a much smaller action:
+
+**choose one swap to perform on the current permutation.**
+
+This was directly inspired by the Logic Agent.
+
+The difference was that the Logic Agent chooses its swaps through hand designed rules.
+
+The RL agent would learn which swap to choose.
+
+That felt like a much more natural first bridge from my heuristic agents into reinforcement learning.
+
+The observation design went through several attempts too.
+
+Some ideas were too weak.
+
+Others were unnecessarily complicated.
+
+One deterministic approach looked reasonable but completely collapsed when tested because it treated failure of one modified candidate as evidence against an entire position.
+
+That was the same conceptual mistake I had already encountered earlier, appearing in a different form.
+
+Rather than endlessly patching it, I dropped the idea.
+
+That became a recurring pattern throughout this project:
+
+if an approach is fundamentally wrong, changing the implementation isn't always the answer;
+
+Sometimes the idea itself needs to go.
+
+---
+
+## And Then I Found Mastermind
+
+While trying to understand how to approach the puzzle more rigorously, I eventually discovered something slightly humbling:
+
+people had already spent a lot of time solving problems extremely similar to this one.
+
+The puzzle belongs to the same family of problems as Mastermind, particularly permutation style variants where the feedback reports how many positions are correct.
+
+That led me to the work around Knuth's Mastermind algorithm.
+
+Instead of continuing to invent increasingly complicated heuristics from scratch, I now want to understand how established Mastermind solvers approach:
+
+* candidate elimination,
+* constraint satisfaction,
+* minimax selection,
+* information gain,
+* and choosing guesses that reduce the remaining uncertainty.
+
+I'm currently studying that approach with the intention of implementing it myself and comparing it against the agents I built.
+
+Finding an established solution didn't make the earlier work pointless.
+
+If anything, it gave me something much more valuable:
+
+a reference point for understanding what my own experiments were approximating, getting wrong, or missing entirely.
+
+---
+
+## What This Module Became
+
+I started this environment because I wanted another game for my RL Playground.
+
+It turned into a much broader experiment in how to approach problems I don't fully understand yet.
+
+I didn't start with the best algorithm.
+
+I didn't know that Mastermind research was relevant.
+
+I made assumptions that turned out to be wrong.
+
+I wrote code that had to be thrown away.
+
+I changed the benchmark after realizing it was misleading.
+
+I changed the agent architecture after the experiments contradicted my expectations.
+
+I tried an observation representation, tested it, watched it fail, and abandoned it.
+
+And eventually, instead of trying to make my own heuristics increasingly complicated, I stepped back and started studying algorithms designed for this class of problem.
+
+That's the part of the project I actually want to preserve.
+
+---
+
+## The Point of the Playground
+
+The RL Playground isn't meant to demonstrate that I already know how to build sophisticated RL agents.
+
+It's meant to document the process of getting there.
+
+I want to be comfortable taking an idea that seems interesting, even when I don't yet have all the skills needed to execute it, and starting anyway.
+
+Build something.
+
+Test it.
+
+Find out where the intuition was wrong.
+
+Change the design.
+
+Learn what I was missing.
+
+Build again.
+
+The Permutation Puzzle is probably the clearest example of that process so far.
+
+And the next experiment is waiting:
+
+**Can I take what I learned from the heuristic agents and the Mastermind literature, implement a principled solver, and then see what reinforcement learning can actually add on top of it?**

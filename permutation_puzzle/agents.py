@@ -88,7 +88,7 @@ class LogicAgent:
             return list(guess)
 
         # Swap on the best guess as long as it maintains consistency with the history
-        for _ in range(50000):
+        for _ in range(100000):
             cand = list(self.current_best)
             # Perform 1 to 3 up to consistency
             num_swaps = random.randint(1, min(3, len(self.items) // 2))

@@ -8,7 +8,7 @@ def evaluate_guess(secret, guess):
     # Return score based on how many were right
     return sum([1 for i in range(len(secret)) if secret[i] == guess[i]])
 
-def play(agent, items, max_steps=50):
+def play(agent, items, max_steps=20):
     # Starts by generating completely new order
     secret = generate_secret_order(items)
     agent.reset()
@@ -27,7 +27,7 @@ def play(agent, items, max_steps=50):
             print("Agent found the correct order!")
             found = True
 
-def play_with_human(agent, items, max_steps=50):
+def play_with_human(agent, items, max_steps=20):
     print("Human: secretly choose an order of the items.")
     print(f"Items: {items}")
     print("Do not reveal it. You will provide feedback each turn.")

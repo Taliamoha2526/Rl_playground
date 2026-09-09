@@ -1,6 +1,20 @@
+from pathlib import Path
+import os
 from agents import *
 from game_mechanics import *
 from benchmark import *
+from rl import *
+
+MODEL_PATH = Path(__file__).resolve().parent / "rl_model.zip"
+
+def rl_agent_ready():
+    """Helper function when using the imported rl agent."""
+    if not MODEL_PATH.exists():
+        return False
+    try:
+        return True
+    except ImportError:
+        return False
 
 def main():
     items = ["A", "B", "C", "D", "E", "F", "G", "H", "I", "J"]
@@ -8,13 +22,18 @@ def main():
     print("Choose Mode:")
     print(" (1) Watch single game against system")
     print(" (2) Play against your chosen order")
-    print(" (3) Run benchmark simulations")
+    print(" (3) Train rl agent policy")
+    print(" (4) Run benchmark simulations")
 
     mode = input("\n Enter your choice ").strip()
 
     if mode == "1":
         agents = { "1": ("RandomAgent", RandomAgent), "2": ("SystematicAgent", SystematicAgent),
                  "3": ("LogicAgent", LogicAgent), "4" : ("HybridAgent", HybridAgent)}
+        #Include Rl when available
+        if rl_agent_ready():
+            agents["5"] = ("RLAgent", RLAgent)
+
         print("\n Select an agent to play against")
         for key, (name, _) in agents.items():
             print(f" ({key}) {name}")
@@ -30,6 +49,9 @@ def main():
     if mode == "2":
         agents = {"1": ("RandomAgent", RandomAgent), "2": ("SystematicAgent", SystematicAgent),
                   "3": ("LogicAgent", LogicAgent), "4": ("HybridAgent", HybridAgent)}
+        if rl_agent_ready():
+            agents["5"] = ("RLAgent", RLAgent)
+
         print("\n Select an agent to play against")
         for key, (name, _) in agents.items():
             print(f" ({key}) {name}")
@@ -39,18 +61,32 @@ def main():
             print(f"\n Starting game against: {name}")
             agent = object(items)
         else:
-            raise ValueError("Please enter vaild agent!")
+            raise ValueError("Please enter valid agent!")
         play_with_human(agent, items, max_steps=20)
+
     if mode == "3":
+        if rl_agent_ready():
+            print(f"\n A trained model already exists at {MODEL_PATH} -- training will overwrite it.")
+        steps_choice = input("\n Enter number of training timesteps (blank for default 500000) ").strip()
+        if steps_choice.isdigit():
+            total_timesteps = int(steps_choice)
+        else:
+            total_timesteps = 500_000
+        print(f"\n Training RL agent on {len(items)} elements for {total_timesteps} timesteps...")
+        train_rl_agent(n_final=len(items), max_steps=20, total_timesteps=total_timesteps)
+        print(f"\n Training complete. Model saved to {MODEL_PATH}")
+
+    if mode == "4":
         epochs_choice = input("\n Enter number of simulation epochs ").strip()
         if epochs_choice.isdigit():
             epochs = int(epochs_choice)
         else:
             epochs = 100
         agents = [RandomAgent(items), SystematicAgent(items), LogicAgent(items), HybridAgent(items)]
+        if rl_agent_ready():
+            agents.append(RLAgent(items, model_path=MODEL_PATH))
+
         histories, results = simulate_agents(agents, items, epochs=epochs)
         plot_dashboard(results)
 
-
 main()
-

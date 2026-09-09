@@ -42,7 +42,7 @@ def plot_dashboard(results, max_steps=20):
       2. Consistency bar chart (average steps to success)
     """
     colors = {"RandomAgent": "dimgray", "SystematicAgent": "royalblue",
-        "LogicAgent": "seagreen", "HybridAgent": "firebrick"}
+        "LogicAgent": "seagreen", "HybridAgent": "firebrick", "RlAgent": "purple"}
 
     fig, axes = plt.subplots(1, 2, figsize=(14, 6))
 

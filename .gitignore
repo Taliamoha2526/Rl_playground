@@ -6,4 +6,4 @@ __pycache__/
 .env
 Guessing_game/models
 Guessing_game/data/characters.csv
-
+permutation_puzzle/rl_model.zip
