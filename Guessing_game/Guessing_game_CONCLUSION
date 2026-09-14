@@ -1,0 +1,209 @@
+1. Why I Built This Environment
+
+The original goal of the Guess the Character environment was not simply to build a playable guessing game or to demonstrate a particular RL algorithm.
+
+I wanted to explore a more fundamental question:
+
+Could I take a simple human decision making game and see how reinforcement learning could blend into it?
+
+The game provided a relatively understandable setting for experimenting with search, information, decision making, and eventually learning.
+
+Rather than starting with a predetermined RL solution;
+
+I wanted to build the environment first;
+
+develop different approaches to playing it;
+
+and gradually explore where reinforcement learning could fit into the problem.
+
+This ended up being less about producing a successful RL agent and more about discovering what happens when I actually try to formulate this kind of problem as RL.
+
+2. What I Developed
+
+Throughout the experiment, the environment grew considerably beyond its initial version.
+
+I developed multiple ways of playing the game, including heuristic approaches based on different strategies for selecting questions and reducing the search space.
+
+The environment also became a framework for:
+
+* generating and working with large character spaces;
+
+* testing different question selection strategies;
+
+* measuring searchspace contraction;
+
+* experimenting with entropy and information gain;
+
+* running repeated simulations;
+
+* comparing agent behaviour;
+
+* introducing stochastic decision making;
+
+* experimenting with Gymnasium environments;
+
+* training and evaluating a DQN agent;
+
+* examining how state, actions, rewards, and termination affect learning.
+
+The different approaches eventually became quite capable of playing the game.
+
+In particular, the heuristic agents can make interesting decisions and are actually fun to watch or play against.
+
+That part of the project worked.
+
+The more difficult question was whether the RL component was actually learning the kind of intelligence I had originally imagined.
+
+3. What I Originally Wanted From RL
+
+My original idea was for the RL agent to learn how to play the game.
+
+Ideally, I wanted it to encounter different situations, understand which questions were useful, and develop a strategy that could generalize to new character configurations.
+
+The interesting part, to me, was not simply reaching the correct character.
+
+It was the possibility of seeing an agent develop its own decisionvmaking behaviour.
+
+That is ultimately what I was trying to explore when bringing RL into the environment.
+
+4. What Actually Happened
+
+After experimenting with the trained agent and looking beyond the training metrics;
+
+I became increasingly unconvinced that this was what had happened.
+
+The RL component was not developing the kind of general intelligence I had been hoping to observe.
+
+Instead, it appeared to have learned a much narrower behaviour.
+
+By repeatedly playing the environment, the model had effectively encountered the available questions many times and learned their relative usefulness.
+
+Its behaviour increasingly looked like memorizing an ordering of questions by importance and selecting from that learned ordering;
+
+rather than reasoning about the current character space and discovering an appropriate strategy.
+
+This distinction became especially important when I thought about generalization.
+
+The agent could behave well under the conditions it had experienced, but I could not point to evidence that it had developed a genuinely transferable understanding of the game.
+
+It wasn't learning something like:
+
+“Given the current structure of the remaining search space, this question is useful.”
+
+It was much closer to:
+
+“Questions like these have tended to work well, so choose them in this order.”
+
+And that is not the idea I had in mind when I started experimenting with RL.
+
+5. Why I Didn't Simply Keep Pushing It
+
+At this point, I could have continued adding complexity until I got behaviour that looked more impressive.
+
+But that would have missed the point of the experiment.
+
+The challenge became finding a way to incorporate RL without destroying the core of the game or giving the agent information that would make the problem trivial.
+
+Once I started constraining the environment to preserve the original game mechanics;
+
+the possibilities for what the RL component could meaningfully learn became much narrower.
+
+So I reached a point where I had to accept an important distinction:
+
+There is a difference between making an RL implementation work and creating the kind of learning problem I originally wanted.
+
+The current implementation represents what I was able to make work while preserving the core of the environment.
+
+It is not the final answer to the question I started with.
+
+And I think that is an important result in itself.
+
+6. The RL Implementation Failed Gracefully
+
+I would consider the RL part of this experiment a graceful failure.
+
+The agent did not develop the generalizable intelligence I was looking for.
+
+But discovering that required actually building the environment, defining the state and action space, training the model, observing its behaviour, changing the formulation, and repeatedly testing the result.
+
+If I had only studied RL theoretically;
+
+I might have understood what states, actions, rewards, and policies are without appreciating how difficult it is to decide what they should represent for a particular problem.
+
+This experiment forced those decisions to become concrete.
+
+And every time an implementation behaved differently from what I expected, I had to question my assumptions.
+
+7. What This Environment Actually Taught Me
+
+Looking back, the most valuable outcome wasn't the final DQN.
+
+It was everything I learned while trying to make the problem work.
+
+Environment design
+
+I learned that an RL environment isn't just a wrapper around a game.
+
+The state, action space, reward, termination conditions, and information available to the agent all determine what the learning problem actually is.
+
+Heuristics
+
+Building non RL agents first gave me a way to understand the problem before trying to make a model learn it.
+
+It also showed me that relatively simple heuristics can perform surprisingly well when the problem structure is understood.
+
+Entropy and information
+
+The original intuition that the agent should ask questions that eliminate the most possibilities eventually led me into entropy and information gain.
+
+That became one of the most useful conceptual bridges between the game and the mathematical side of decision making.
+
+Metrics
+
+I also learned that a single metric such as win rate doesn't tell the whole story.
+
+Looking at things like search space contraction, number of steps, question selection, and behaviour across different conditions gave me a much better understanding of what the agents were actually doing.
+
+Most importantly, I learned to look beyond whether the model produces a good looking result and ask why it produces it.
+
+8. Where I Leave the Environment
+
+For now, I don't have another major idea that I want to force into this environment.
+
+I think that's okay.
+
+The Guessing game environment has reached a point where the different developed agents are interesting enough to watch and, more importantly, fun to play against.
+
+The environment also served its original purpose as an experimentation ground.
+
+I wanted to explore how I could set up a game, develop different approaches to it, and investigate where RL could fit.
+
+I did that.
+
+The complete thought process, experiments, failures, changes, and discoveries are recorded throughout the documentation for this project.
+
+So rather than presenting the final RL agent as a polished solution, I'm leaving the experiment open.
+
+If you see something I've misunderstood, a potential fix, a better way to formulate the RL problem, or simply have a new idea that could make this environment interesting again, I'd genuinely like to hear it.
+
+Final Reflection
+
+I started this environment wondering:
+
+“How can I bring reinforcement learning into this game?”
+
+I finish it with a much more useful question:
+
+“What does it actually take to create an RL problem where the agent can learn the kind of behaviour I care about?”
+
+The answer turned out to be much more complicated than simply choosing an algorithm and training it.
+
+The RL implementation failed gracefully.
+
+It didn't produce the generalizable intelligence I originally imagined, and I don't want to pretend that it did.
+
+But the experiment taught me a lot about designing environments, building heuristics, thinking about entropy and information, choosing metrics,
+
+and most importantly,using experiments to discover where my own understanding is incomplete.
+
+And that's exactly why I built the playground in the first place.
