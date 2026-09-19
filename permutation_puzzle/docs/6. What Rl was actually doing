@@ -1,0 +1,101 @@
+# Watching What the Agent Was Actually Doing
+
+Switching to DQN was meant to fix a specific, narrow problem: repeated swaps.
+
+What it actually did was change how this project understood reinforcement learning, not just how it implemented it.
+
+---
+
+## Code That Runs Is Not Code That Works
+
+The first trained policy looked fine on paper.
+
+It trained without errors, the loss curves moved, and the model saved and loaded correctly.
+
+Watching it actually play was what showed the truth: it picked one guess and never deviated from it for the rest of the episode.
+
+> A model that trains without error is not the same as a model that is doing the right thing.
+
+The only way to tell the difference was to watch it play, not to read the training log.
+
+This became the first real lesson of the RL work, and it repeated itself more than once:
+
+generic fixes and generic advice "try a different algorithm, train longer, adjust a hyperparameter" do not diagnose a specific behavior.
+
+Understanding why the agent kept repeating itself required reasoning about the actual mechanics of the environment:
+
+the observation barely changed when a swap failed;
+
+a deterministic policy has no way to behave differently on an input that looks the same as the one before it.
+
+That explanation didn't come from a tip.
+
+It came from tracing through what the network could and could not possibly tell apart.
+
+---
+
+## Every Real Fix Came From the Same Question
+
+The pattern held for everything that followed.
+
+Adding hot/cold signal to the observation worked because it answered a specific question about what the network was missing;
+
+not because it was a generally recommended technique.
+
+A single step of memory still allowed cycling between a small set of failed swaps;
+
+That came from reasoning directly about wether the agent could distinguish between two different situations that would otherwise look identical to it;
+
+not from a suggestion, but from asking the same question again: what does this input actually tell the network, and what does it hide from it.
+
+> Understanding what the algorithm was thinking;
+
+what its input let it see and what it couldn't did more for this project than any individual code change did on its own.
+
+---
+
+## Getting It to Play At All Was the Milestone
+
+After all of that, the agent that came out the other side is not a strong player.
+
+It uses its move history now, and it visibly tries different swaps instead of freezing on the first one;
+
+which is a genuinely different agent from the one that started this stretch of the project;
+
+but it is still far from competitive with the heuristic agents built earlier.
+
+That is being treated as a real result, not a shortfall.
+
+Getting something to attempt the puzzle at all in a way that shows room to improve rather than a hard failure;
+
+was always going to be worth more at this stage than a highly tuned but opaque success would have been.
+
+---
+
+## What's Next: A Real Ceiling to Measure Against
+
+The natural next comparison is a Knuth style optimal search;
+
+the same idea flagged early in this project as a principled reference point;
+
+back when the heuristic agents were first being benchmarked against each other.
+
+Measuring the RL agent against an actual information theoretic optimum;
+
+rather than only against the other heuristics, is the next step:
+
+not to prove the RL approach superior, but to see how far apart learned and optimal actually are on this particular problem,
+
+and what that gap suggests about the environment and reward design.
+
+---
+
+None of this was approached expecting the reinforcement learning attempt to succeed outright.
+
+The point of this playground was never to arrive at the best possible agent on the first try;
+
+it was to take an idea that existed only as a plan and actually build it;
+
+incompletely and imperfectly if necessary, rather than leave it as something only reasoned about in the abstract.
+
+Whatever the Knuth comparison ends up showing, that part of the goal is already met.

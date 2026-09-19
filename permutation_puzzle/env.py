@@ -10,6 +10,8 @@ Similar to the logic of the heuristics agents, but more computationally efficien
     - current best guess, one hot encoded for faster and simpler comparison
     - best score so far / n
     - steps taken / max_steps
+    - delta (difference between current and best ever achieved score in the episode)
+    - tried actions since the latest improvement in score
 - Reward: small step penalty + big terminal bonus on solving. 
 To emphasize the greater goal is to get the final solution faster and not to be mislead by score fluctuations
 - A fresh secret order is drawn every episode in reset()
@@ -17,19 +19,21 @@ To emphasize the greater goal is to get the final solution faster and not to be 
 class PermutationPuzzleEnv(gym.Env):
     metadata = {"render_modes": ["human"]}
 
-    def __init__(self, n=10, max_steps=20, step_penalty=-0.02, solve_bonus=1.0):
+    def __init__(self, n=10, max_steps=20, step_penalty=-0.02, solve_bonus=1.0, delta_reward_scale=0.1, repeat_penalty=-0.3):
         super().__init__()
         self.n = n
         self.max_steps = max_steps
         self.step_penalty = step_penalty
         self.solve_bonus = solve_bonus
+        self.delta_reward_scale = delta_reward_scale
+        self.repeat_penalty = repeat_penalty
 
         # Precompute the list of (i, j) swap pairs that action indices map to.
         self._swap_pairs = [(i, j) for i in range(n) for j in range(i + 1, n)]
         self.action_space = spaces.Discrete(len(self._swap_pairs))
 
-        # Observation: compatibility matrix (n*n) + encoded best guess (n*n) + normalized best score (1) + normalized steps (1)
-        obs_len = self.n * self.n + self.n * self.n + 2
+        # Observation: compatibility matrix (n*n) + encoded best guess (n*n) + encoded recent swap(2n) + normalized best score (1) + normalized steps (1)+ normalized delta(1) + steps since improvement(1)
+        obs_len = (self.n * self.n) + (self.n * self.n) + (2 * self.n) + 4 + len(self._swap_pairs)
         self.observation_space = spaces.Box(low=0.0, high=1.0, shape=(obs_len,), dtype=np.float32)
         self._rng = np.random.default_rng()
 
@@ -56,13 +60,22 @@ class PermutationPuzzleEnv(gym.Env):
         for pos, item in enumerate(self.best_guess):
             oh[pos, item] = 1.0
         return oh
-
+    def _last_action_onehot(self):
+        oh = np.zeros(2 * self.n, dtype=np.float32)
+        if self.last_action is not None:
+            i, j = self.last_action
+            oh[i] = 1.0
+            oh[self.n + j] = 1.0
+        return oh
     def _get_obs(self):
         comp = self._compatibility_matrix().flatten()
         best = self._best_guess_onehot().flatten()
         best_score_norm = np.array([self.best_score / self.n], dtype=np.float32)
         steps_norm = np.array([self.steps / self.max_steps], dtype=np.float32)
-        return np.concatenate([comp, best, best_score_norm, steps_norm]).astype(np.float32)
+        last_action = self._last_action_onehot()
+        last_delta_norm = np.array([self.last_delta / self.n], dtype=np.float32)
+        streak_norm = np.array([min(self.steps_since_improvement, self.max_steps) / self.max_steps], dtype=np.float32)
+        return np.concatenate([comp, best, best_score_norm, steps_norm, last_action, last_delta_norm, streak_norm, self.tried_actions_since_improvement]).astype(np.float32)
 
     def _get_info(self):
         return {"steps": self.steps, "best_score": self.best_score, "best_guess": self.best_guess.copy()}
@@ -80,28 +93,41 @@ class PermutationPuzzleEnv(gym.Env):
         self.best_guess = self._rng.permutation(self.n)
         self.best_score = self._score(self.best_guess, self.secret)
         self.history.append((self.best_guess.copy(), self.best_score))
-
+        self.last_action = None
+        self.last_delta = 0.0
+        self.steps_since_improvement = 0
+        self.tried_actions_since_improvement = np.zeros(len(self._swap_pairs), dtype=np.float32)
         return self._get_obs(), self._get_info()
 
     def step(self, action):
         self.steps += 1
         i, j = self._swap_pairs[int(action)]
+        tried = bool(self.tried_actions_since_improvement[action])
+        self.tried_actions_since_improvement[action] = 1.0
         # Perform the selected swap action
         candidate = self.best_guess.copy()
         candidate[i], candidate[j] = candidate[j], candidate[i]
 
         score = self._score(candidate, self.secret)
         self.history.append((candidate.copy(), score))
-
+        delta = score - self.best_score
+        self.last_action = (i, j)
+        self.last_delta = float(delta)
         if score > self.best_score:
             self.best_score = score
             self.best_guess = candidate
+            self.steps_since_improvement = 0
+            self.tried_actions_since_improvement[:] = 0.0
+        else:
+            self.steps_since_improvement +=1
 
         solved = score == self.n
         terminated = bool(solved)
         truncated = bool(self.steps >= self.max_steps and not solved)
-
-        reward = self.step_penalty
+        if tried and not solved:
+            reward = self.repeat_penalty
+        else:
+            reward = self.step_penalty + self.delta_reward_scale * delta
         if solved:
             # Reward faster solutions
             reward = self.solve_bonus * (1.0 - 0.5 * self.steps / self.max_steps)
