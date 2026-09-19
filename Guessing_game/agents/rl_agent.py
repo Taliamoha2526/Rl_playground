@@ -1,14 +1,13 @@
-import numpy as np
 from pathlib import Path
 from Guessing_game.agents.base_agent import BaseAgent
 from Guessing_game.environments.gym_env import GuessWhoEnv
 from stable_baselines3 import DQN
 
-MODULE_DIR = Path(__file__).resolve().parent
-MODEL_DIR = MODULE_DIR / "models"
-MODEL_DIR.mkdir(parents=True, exist_ok=True)
-
-model_path = MODEL_DIR / "dqn_guess_who.zip"
+MAIN_FILE = Path(__file__).resolve()
+GUESSING_GAME_DIR = MAIN_FILE.parent
+MODELS_DIR = GUESSING_GAME_DIR / "models"
+MODELS_DIR.mkdir(parents=True, exist_ok=True)
+model_path = MODELS_DIR / "dqn_guess_who.zip"
 
 class RLAgent(BaseAgent):
 

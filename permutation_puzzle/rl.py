@@ -14,7 +14,7 @@ Two pieces:
 Note: RLAgent reconstructs the observations itself, independent of the environment, so it can be reused outside the context of training.
 """
 MODULE_DIR = Path(__file__).resolve().parent
-model_path = MODULE_DIR / "dqn_guess_who.zip"
+model_path = MODULE_DIR / "rl_model.zip"
 
 def _make_env_fn(n, max_steps, delta_reward_scale=0.1):
     def _fn():
