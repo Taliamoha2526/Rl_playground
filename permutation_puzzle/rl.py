@@ -13,6 +13,8 @@ Two pieces:
 
 Note: RLAgent reconstructs the observations itself, independent of the environment, so it can be reused outside the context of training.
 """
+MODULE_DIR = Path(__file__).resolve().parent
+model_path = MODULE_DIR / "dqn_guess_who.zip"
 
 def _make_env_fn(n, max_steps, delta_reward_scale=0.1):
     def _fn():
@@ -20,7 +22,7 @@ def _make_env_fn(n, max_steps, delta_reward_scale=0.1):
         return env
     return _fn
 
-def train_rl_agent(n_final=10, max_steps=20, total_timesteps=500_000, n_envs=8,save_path="rl_model.zip"):
+def train_rl_agent(n_final=10, max_steps=20, total_timesteps=500_000, n_envs=8,save_path=model_path):
     """Train a DQN policy with the setup environment and save the model"""
     vec_env = make_vec_env(_make_env_fn(n_final, max_steps), n_envs=n_envs)
     model = DQN("MlpPolicy", vec_env, verbose=1, buffer_size=200_000, learning_starts=5_000,
@@ -32,7 +34,7 @@ def train_rl_agent(n_final=10, max_steps=20, total_timesteps=500_000, n_envs=8,s
 
 class RLAgent:
     """Wraps a trained DQN policy in a regular agent to include in games and benchmarking."""
-    def __init__(self, items, model_path="permutation_puzzle/rl_model.zip"):
+    def __init__(self, items, model_path= model_path):
         self.items = list(items)
         self._item_to_idx = {item: i for i, item in enumerate(self.items)}
         self.n = len(items)

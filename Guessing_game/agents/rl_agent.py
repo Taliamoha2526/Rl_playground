@@ -1,11 +1,18 @@
 import numpy as np
+from pathlib import Path
 from Guessing_game.agents.base_agent import BaseAgent
 from Guessing_game.environments.gym_env import GuessWhoEnv
 from stable_baselines3 import DQN
 
+MODULE_DIR = Path(__file__).resolve().parent
+MODEL_DIR = MODULE_DIR / "models"
+MODEL_DIR.mkdir(parents=True, exist_ok=True)
+
+model_path = MODEL_DIR / "dqn_guess_who.zip"
+
 class RLAgent(BaseAgent):
 
-    def __init__(self, search_space, model_path=None, max_steps=20):
+    def __init__(self, search_space, model_path=model_path, max_steps=20):
         super().__init__(search_space, max_steps)
         self.gym_env = GuessWhoEnv(search_space, max_steps=max_steps)
         self.model = None
@@ -17,7 +24,7 @@ class RLAgent(BaseAgent):
                 raise RuntimeError(f"Failed to load RL model from '{model_path}': {e}") from e
 
     @classmethod
-    def train_model(cls, characters_df, total_timesteps=100_000,save_path="models/dqn_guess_who.zip" ):
+    def train_model(cls, characters_df, total_timesteps=100_000,save_path=model_path ):
         print(f"\n--- Training Feature-Ratio RL Agent ({total_timesteps} timesteps) ---")
         env = GuessWhoEnv(characters_df, max_steps=100)
 
