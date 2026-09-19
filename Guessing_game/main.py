@@ -1,5 +1,6 @@
 import os
 import sys
+from pathlib import Path
 # Path direction fix
 CURRENT_DIR = os.path.dirname(os.path.abspath(__file__))
 PARENT_DIR = os.path.dirname(CURRENT_DIR)
@@ -21,9 +22,8 @@ from user_setting import play_with_user
 
 def main():
     characters_df = generate_characters(n="max")
-    model_path = "models/dqn_guess_who.zip"
-    os.makedirs("models", exist_ok=True)
-
+    GUESSING_GAME_DIR = Path(__file__).resolve().parent
+    model_path = GUESSING_GAME_DIR / "models" / "dqn_guess_who.zip"
     print("             GUESS THE CHARACTER GAME             ")
     print("Choose mode:")
     print(" (1) Play single game vs System Opponent")
