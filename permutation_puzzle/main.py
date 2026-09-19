@@ -1,5 +1,14 @@
 from pathlib import Path
 import os
+import sys
+# Path redirection fix
+CURRENT_DIR = os.path.dirname(os.path.abspath(__file__))
+PARENT_DIR = os.path.dirname(CURRENT_DIR)
+
+for path in (CURRENT_DIR, PARENT_DIR):
+    if path not in sys.path:
+        sys.path.insert(0, path)
+
 from agents import *
 from game_mechanics import *
 from benchmark import *

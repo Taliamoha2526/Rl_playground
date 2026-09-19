@@ -1,4 +1,13 @@
 import os
+import sys
+# Path direction fix
+CURRENT_DIR = os.path.dirname(os.path.abspath(__file__))
+PARENT_DIR = os.path.dirname(CURRENT_DIR)
+
+for path in (CURRENT_DIR, PARENT_DIR):
+    if path not in sys.path:
+        sys.path.insert(0, path)
+
 from agents.entropic_agent import EntropicAgent
 from agents.epsilon_agent import EpsilonInfoGainAgent
 from agents.info_gain_agent import InfoGainAgent
