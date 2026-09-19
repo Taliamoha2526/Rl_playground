@@ -1,4 +1,5 @@
 import os
+from pathlib import Path
 import random
 import pandas as pd
 def generate_characters(n, save_csv = True):
@@ -28,7 +29,9 @@ def generate_characters(n, save_csv = True):
     df = pd.DataFrame(data)
     df.index = [f"Character {i + 1}" for i in range(n)]
     if save_csv:
-        os.makedirs("data", exist_ok=True)
-        csv_path = os.path.join("data", "characters.csv")
-        df.to_csv(csv_path)
+        MODULE_DIR = Path(__file__).resolve().parent
+        DATA_DIR = MODULE_DIR / "data"
+        DATA_DIR.mkdir(parents=True, exist_ok=True)
+        data_path = DATA_DIR / "characters.csv"
+        df.to_csv(data_path)
     return df
