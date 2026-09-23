@@ -2,9 +2,17 @@
 
 ## Learning Reinforcement Learning by Experimenting With It
 
-I started self-learning Reinforcement Learning with a lot of theory, equations, algorithms, and examples. Somewhere along the way, I had a random thought: **what if I used games and experiments to make these ideas feel more real?**
+I started self learning Reinforcement Learning with a lot of theory, equations, algorithms, and examples.
 
-Reinforcement Learning is built around interaction. An agent takes an action, the environment responds, the agent receives feedback, and over time its behaviour changes. I didn't want my learning to stay limited to reading about those ideas or implementing isolated algorithms from tutorials. I wanted to build environments where I could actually watch them happen.
+Somewhere along the way, I had a random thought: "what if I used games and experiments to make these ideas feel more real?"
+
+Reinforcement Learning is built around interaction.
+
+An agent takes an action, the environment responds, the agent receives feedback, and over time its behaviour changes.
+
+I didn't want my learning to stay limited to reading about those ideas or implementing isolated algorithms from tutorials.
+
+I wanted to build environments where I could actually watch them happen.
 
 What would an agent do when the environment becomes more complex?
 
@@ -16,11 +24,19 @@ How much information should an environment expose before we are effectively givi
 
 Sometimes those questions start as planned experiments. Other times, they come from something unexpected happening in the code.
 
-**RL Playground is where I explore those questions.**
+This repository is a growing collection of small environments, experiments, implementations, and notes from my journey learning Reinforcement Learning.
 
-This repository is a growing collection of small environments, experiments, implementations, and notes from my journey learning Reinforcement Learning. The goal is not just to implement algorithms, but to understand how they behave.
+The goal is not just to implement algorithms, but to understand how they behave.
 
-I expect to get things wrong here. Some experiments will fail. Some ideas will turn out to optimize the wrong thing. Those moments are part of the point.
+I expect to get things wrong here;
+
+Some experiments will fail;
+
+Some ideas will turn out to optimize the wrong thing;
+
+Some will become much more complicated than I expected;
+
+Those moments are part of the point.
 
 ---
 
@@ -28,7 +44,7 @@ I expect to get things wrong here. Some experiments will fail. Some ideas will t
 
 This repository is built around learning RL through three things:
 
-###Experimentation
+### Experimentation
 
 Instead of treating an algorithm as something to simply train and evaluate, I want to change the environment around it and ask what happens.
 
@@ -42,25 +58,25 @@ This might mean changing:
 * what information an agent can observe;
 * noise or uncertainty in the environment.
 
-The goal is to understand **why** an agent behaves the way it does, not only whether it achieves a high reward.
+The goal is to understand why an agent behaves the way it does, not only whether it achieves a high reward.
 
-###uilding environments
+### Building environments
 
 Games and simulations make abstract RL concepts easier for me to see.
 
 An equation such as
 
-[
+$$
 Q(s,a) \leftarrow Q(s,a) + \alpha [R + \gamma \max_a Q(s',a) - Q(s,a)]
-]
+$$
 
 means something very different once I can watch an agent repeatedly make decisions, receive consequences, and gradually change its behaviour.
 
 This playground is therefore also a place for building environments where those ideas can be tested directly.
 
-###Learning through implementation
+### Learning through implementation
 
-Part of this repository will also be dedicated to working through ideas and exercises inspired by **Sutton and Barto's *Reinforcement Learning: An Introduction***.
+Part of this repository will also be dedicated to working through ideas and exercises inspired by Sutton and Barto's Reinforcement Learning: An Introduction.
 
 Rather than only solving an exercise and moving on, I want to use some of them as starting points for further experimentation:
 
@@ -72,19 +88,24 @@ Rather than only solving an exercise and moving on, I want to use some of them a
 
 > Can the original problem be turned into an interactive or configurable experiment?
 
-The goal is to build my understanding from both directions: **theory → implementation → observation → questions → more theory**.
+The goal is to build my understanding from both directions:
+
+theory → implementation → observation → questions → more theory
 
 ---
 
 # Current Project: Guessing Game
 
-The first major environment in this playground is an automated, high-cardinality version of **Guess Who?**
+The first major environment in this playground is an automated, high cardinality version of Guess the character
 
 The basic problem is simple:
 
-> A hidden character exists somewhere in a large pool of candidates. An agent must ask yes/no questions and progressively reduce the search space until it can identify the correct character.
+> A hidden character exists somewhere in a large pool of candidates;
+
+An agent must ask yes/no questions and progressively reduce the search space until it can identify the correct character.
 
 For example:
+
 Step 1: Is Industry = 'film'?
 Answer: No
 Remaining candidates: 887
@@ -104,12 +125,16 @@ Correct.
 
 What started as a guessing game quickly became more interesting.
 
-I began experimenting with an entropy-based decision strategy and noticed that changing the complexity of the search space could change the behaviour of the algorithm itself. Questions that seemed reasonable under one distribution could become inefficient under another.
+I began experimenting with an entropy based decision strategy;
+
+and noticed that changing the complexity of the search space could change the behaviour of the algorithm itself.
+
+Questions that seemed reasonable under one distribution could become inefficient under another.
 
 That led to a series of questions about:
 
 * feature entropy versus the information gained from an individual binary question;
-* search-space contraction;
+* search space contraction;
 * feature cardinality;
 * exploration;
 * large action spaces;
@@ -121,25 +146,94 @@ The project currently includes multiple heuristic agents alongside a Deep Q-Netw
 
 ### Current approaches
 
-* **Random Agent** — selects actions without an information-based strategy.
-* **Cardinality Entropy Agent** — my original approach, selecting features based on their categorical entropy.
-* **Binary Information Gain Agent** — evaluates the quality of individual yes/no partitions.
-* **Epsilon-Information Gain Agent** — introduces exploration into the information-gain strategy.
-* **DQN Agent** — learns a policy through interaction with a custom Gymnasium environment.
+* Random Agent — selects actions without an information based strategy.
+* Cardinality Entropy Agent — my original approach, selecting features based on their categorical entropy.
+* Binary Information Gain Agent — evaluates the quality of individual yes/no partitions.
+* Epsilon Information Gain Agent — introduces exploration into the information gain strategy.
+* DQN Agent — learns a policy through interaction with a custom Gymnasium environment.
 
-The most interesting part of this project has not been deciding which algorithm "wins." It has been discovering the problems that appeared while trying to make the comparison meaningful.
+The most interesting part of this project has not been deciding which algorithm wins.
 
-The DQN, for example, initially failed completely because the action space contained thousands of direct character guesses and relatively few useful question actions. Random exploration overwhelmingly selected guesses, leading the agent into repeated negative rewards without discovering effective questioning behaviour.
+It has been discovering the problems that appeared while trying to make the comparison meaningful.
+
+The DQN, for example, initially failed completely because the action space contained thousands of direct character guesses and relatively few useful question actions.
+
+Random exploration overwhelmingly selected guesses, leading the agent into repeated negative rewards without discovering effective questioning behaviour.
 
 Solving that problem led to further questions about action constraints, observation design, and how much information an agent should receive about the current search space.
 
-The Guessing Game is still evolving, and its development journey—including the mistakes, failed approaches, and reasoning behind each major change—is documented inside the project.
+The Guessing Game is still evolving, and its development journey including the mistakes, failed approaches, and reasoning behind each major change is documented inside the project.
+
+---
+
+# Current Project: Permutation Puzzle
+
+The second major environment started from a much simpler idea.
+
+It was inspired by a game we regularly played at gatherings, Guess the order game.
+
+It's essentially a puzzle where the agent had to discover a hidden arrangement, but where the feedback was deliberately incomplete.
+
+The environment hides a permutation of distinct items.
+
+The agent submits a permutation as a guess and receives only the number of elements in the correct position.
+
+For example:
+
+Hidden: [A, B, C, D]
+
+Guess:  [A, C, D, B]
+Feedback: 1
+
+The agent knows that exactly one position is correct, but not which one.
+
+At first, I approached this as another opportunity to design increasingly intelligent heuristic agents.
+
+I built:
+
+* Random Agent — Ignores feedback and randomly suggests permutations.
+* Systematic Agent — filters candidates using all previous feedback.
+* Logic Agent — searches locally around its best known guess.
+* Hybrid Agent — combines constraint filtering, local search, and information based candidate selection.
+
+Then I benchmarked them.
+
+With four elements, the search space contains only:
+4! = 24 possible permutations.
+
+That made it a useful environment for experimenting with agent behaviour before scaling the problem.
+
+But increasing the puzzle to ten elements changed the problem dramatically:
+
+10! = 3,628,800 possible permutations
+
+The benchmark produced a result I didn't expect: the Logic Agent performed substantially better than the more complicated Hybrid approach.
+
+That forced me to investigate why.
+
+The experiments revealed problems with search space representation, global constraints, local versus global search, and assumptions about what feedback actually tells an agent.
+
+It also taught me that combining several strategies does not automatically produce a better strategy.
+
+Eventually, I stepped back from patching the heuristics and started thinking about the underlying problem more formally.
+
+That led naturally toward constraint satisfaction, information gain, and Mastermind solving algorithms.
+
+I later discovered the connection to Knuth's Mastermind algorithm and began studying how established solutions approach candidate elimination and information based guess selection.
+
+The next step is to implement and compare those ideas rather than continuing to invent increasingly complicated heuristics without understanding the underlying theory.
+
+I also began translating the puzzle into an RL environment, experimenting with observation design, action space reduction, and reward design.
+
+The Permutation Puzzle became less about simply making an agent solve a game and more about learning how to approach a problem when I don't yet know the best way to solve it.
+
+Its full development process is documented inside the module.
 
 ---
 
 ## Where this repository is going
 
-The Guessing Game is only the first environment.
+The Guessing Game and Permutation Puzzle are only the beginning.
 
 I want this playground to grow alongside my understanding of Reinforcement Learning.
 
@@ -154,9 +248,39 @@ Future work may include:
 * reproducing interesting RL results and then changing their assumptions to see what happens;
 * eventually, more complex environments involving function approximation and deep RL.
 
-There is intentionally no fixed list of projects yet.
+But there is intentionally no fixed list of projects.
 
-The repository is meant to be a **playground**. Some experiments may remain small. Some may grow into larger projects. Some may fail completely but still teach me something worth documenting.
+I have realized that some of the most interesting things I build can start from thoughts that have nothing to do with a planned curriculum.
+
+A random question while riding an elevator.
+
+A strange game mechanic.
+
+A thought about how people behave in a particular situation.
+
+A simulation that seems unnecessarily complicated.
+
+An idea that I don't yet have the skills to implement.
+
+If I have a crazy idea, I want to push it here and try to make it work.
+
+I don't need to know the complete algorithm before I start.
+
+I can build the first version, find out what I don't understand, learn what I need, change the design, and try again.
+
+Some ideas will become useful experiments.
+
+Some will turn into serious projects.
+
+Some will fail.
+
+Some may force me to learn an entirely new area before I can continue.
+
+That's fine.
+
+The playground is not meant to be a carefully predetermined sequence of increasingly impressive projects.
+
+It is a place where I can follow interesting questions and see where they lead.
 
 ---
 
@@ -167,42 +291,56 @@ I want this repository to show more than finished results.
 For each substantial project, I want to preserve the path that led there:
 
 Idea
- ↓
+  ↓
 Implementation
- ↓
+  ↓
 Observation
- ↓
+  ↓
 Something unexpected happens
- ↓
+  ↓
 Question why
- ↓
+  ↓
 Experiment
- ↓
+  ↓
 Learn
- ↓
+  ↓
+Change the plan
+  ↓
 Try again
 
 That process is what I find most valuable about learning Reinforcement Learning.
 
-The algorithms matter. The mathematics matters. But eventually, I want to reach the point where I can look at an agent doing something unexpected and have enough understanding to ask:
+The algorithms matter.
 
-> **What about this environment, representation, action space, or reward made the agent behave that way?**
+The mathematics matters.
 
-This repository is my attempt to learn how to answer that question and is actively growing as I continue learning and experimenting with Reinforcement Learning.
+But eventually, I want to reach the point where I can look at an agent doing something unexpected and have enough understanding to ask:
+
+"What about this environment, representation, action space, or reward made the agent behave that way?"
+
+And if I don't know the answer yet, I want to be willing to investigate it rather than avoid the problem because I don't have all the skills already.
+
+That is increasingly what this playground represents for me:
+
+not knowing exactly how to build something is no longer a reason not to try building it.
 
 ---
 
 ## Follow the Journey
 
-Each major project will include its own documentation explaining not only **what I built**, but also:
+Each major project will include its own documentation explaining not only what I built, but also:
 
 * what I was trying to understand;
 * what I initially expected to happen;
 * what actually happened;
 * the problems I ran into;
 * what I changed;
-* and what I learned along the way.
+* why I changed it;
+* what I learned along the way;
+* and where the experiment went next.
 
 I don't want this to be a collection of projects where every result looks obvious in hindsight.
 
-I want it to be an honest record of learning by building, experimenting, and occasionally being completely wrong.
+I want it to be an honest record of learning by building, experimenting, changing plans, and occasionally being completely wrong.
+
+The next experiment doesn't have to be planned yet. I just need a good idea.
