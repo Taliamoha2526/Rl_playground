@@ -38,10 +38,10 @@ def main():
 
     if mode == "1":
         agents = { "1": ("RandomAgent", RandomAgent), "2": ("SystematicAgent", SystematicAgent),
-                 "3": ("LogicAgent", LogicAgent), "4" : ("HybridAgent", HybridAgent)}
+                 "3": ("LogicAgent", LogicAgent), "4" : ("HybridAgent", HybridAgent), "5": ("KnuthAgent" , KnuthAgent)}
         #Include Rl when available
         if rl_agent_ready():
-            agents["5"] = ("RLAgent", RLAgent)
+            agents["6"] = ("RLAgent", RLAgent)
 
         print("\n Select an agent to play against")
         for key, (name, _) in agents.items():
@@ -57,9 +57,9 @@ def main():
 
     if mode == "2":
         agents = {"1": ("RandomAgent", RandomAgent), "2": ("SystematicAgent", SystematicAgent),
-                  "3": ("LogicAgent", LogicAgent), "4": ("HybridAgent", HybridAgent)}
+                  "3": ("LogicAgent", LogicAgent), "4": ("HybridAgent", HybridAgent), "5": ("KnuthAgent", KnuthAgent)}
         if rl_agent_ready():
-            agents["5"] = ("RLAgent", RLAgent)
+            agents["6"] = ("RLAgent", RLAgent)
 
         print("\n Select an agent to play against")
         for key, (name, _) in agents.items():
@@ -76,11 +76,11 @@ def main():
     if mode == "3":
         if rl_agent_ready():
             print(f"\n A trained model already exists at {MODEL_PATH} -- training will overwrite it.")
-        steps_choice = input("\n Enter number of training timesteps (blank for default 500000) ").strip()
+        steps_choice = input("\n Enter number of training timesteps (blank for default 1000000) ").strip()
         if steps_choice.isdigit():
             total_timesteps = int(steps_choice)
         else:
-            total_timesteps = 500_000
+            total_timesteps = 1000000
         print(f"\n Training RL agent on {len(items)} elements for {total_timesteps} timesteps...")
         train_rl_agent(n_final=len(items), max_steps=20, total_timesteps=total_timesteps)
         print(f"\n Training complete. Model saved to {MODEL_PATH}")
@@ -91,7 +91,7 @@ def main():
             epochs = int(epochs_choice)
         else:
             epochs = 100
-        agents = [RandomAgent(items), SystematicAgent(items), LogicAgent(items), HybridAgent(items)]
+        agents = [RandomAgent(items), SystematicAgent(items), LogicAgent(items), HybridAgent(items), KnuthAgent(items)]
         if rl_agent_ready():
             agents.append(RLAgent(items, model_path=MODEL_PATH))
 
