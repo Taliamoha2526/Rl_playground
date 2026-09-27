@@ -1,0 +1,368 @@
+# Elevator Simulation
+
+> What if elevators could actually think about where they're going?
+
+This started with a completely random thought I had while riding an elevator.
+
+I started thinking that elevators might be much more efficient if they didn't simply react to whoever calls them.
+
+What if they could look at the situation around them where the elevators are, where people are waiting, how far they need to travel;
+
+and make decisions based on the bigger picture?
+
+I didn't have a solution.
+
+I didn't even have a clear idea of how I would turn the thought into an RL problem.
+
+I just couldn't stop thinking about it.
+
+And that's pretty much the point of the playground.
+
+I've been using the playground to take ideas that randomly come to me, turn them into environments, and see what happens.
+
+The guess the character game started from wanting to experiment with agents making decisions through information.
+
+The permutation puzzle came from a game I already played with friends and turned into an experiment around search and heuristics.
+
+This one started much more simply:
+
+I wondered how an elevator could make better decisions, so I had to build an elevator.
+
+---
+
+## The idea
+
+The first version isn't really about RL yet.
+
+I wanted to build the world first.
+
+So right now, there is:
+
+a building with elevators moving between floors,
+passengers appearing randomly,
+elevators receiving requests,
+and the whole thing running as a time based simulation.
+
+The elevators don't just jump from floor to floor either.
+
+They have continuous positions, acceleration, velocity, cruising, braking, and doors that open and close.
+
+The goal was to make something I could actually watch.
+
+Eventually, I want this to become much more than a visual elevator simulator.
+
+I want to be able to create:
+
+different traffic conditions,
+compare different ways of dispatching elevators,
+measure their performance,
+and eventually experiment with learning based approaches.
+
+Rush hour could look different from normal traffic.
+
+A building where most people travel between a few common floors could behave differently from completely random traffic.
+
+Different dispatching strategies could be tested against the exact same passenger patterns.
+
+And somewhere in all of that, there is probably an RL problem.
+
+I just don't know what that problem looks like yet.
+
+And that's okay.
+
+The idea came first. The solution can come later.
+
+---
+
+## What exists right now
+
+The current version is intentionally simple.
+
+* Configured 10 floor building
+* Configured 3 elevators
+* Continuous, time based elevator movement
+* Acceleration, cruising, and braking distance based deceleration
+* Opening and closing elevator doors
+* Random passenger generation
+* Random origins and destinations
+* Elevator requests and assignments
+* Passenger waiting and journey time tracking
+* Event logging and simulation statistics
+* A Pygame renderer for watching the simulation
+
+The current experiment is using a nearest assignment dispatcher and a random traffic generator as the starting point.
+
+They're not supposed to be intelligent.
+
+They're there to give me something to observe and a baseline that I can eventually build on.
+
+---
+
+## Why I built the simulation first
+
+One thing I've been trying to do with the Playground is stop waiting until I completely understand an idea before trying it.
+
+With the permutation puzzle, I didn't know exactly how I was going to make the RL version work when I started.
+
+The same thing happened here.
+
+I still don't have a final RL formulation for this project.
+
+Instead of getting stuck trying to design the perfect state space, action space, and reward function beforehand, I decided to build the environment first.
+
+I wanted to see the problem.
+
+Once you can actually watch three elevators moving around a building while passengers start appearing and waiting, questions become much easier to ask:
+
+* What should an elevator actually consider when choosing a request?
+* Is distance enough?
+* When should an elevator ignore a nearby request?
+* How should multiple passengers affect a decision?
+* What happens during a traffic surge?
+* Should some requests have higher priority?
+* How do we measure whether one strategy is actually better?
+* Where does reinforcement learning even fit into all of this?
+
+I don't have all the answers.
+
+That's exactly why I'm experimenting with it.
+
+---
+
+## My role in building this
+
+This project is also a bit different from some of my previous work.
+
+For earlier projects in the Playground, I spent much more time writing the implementation myself.
+
+For this one, I deliberately tried something different.
+
+I already had the creative direction and the problem I wanted to explore.
+
+I knew what I wanted the simulation to represent;
+
+how I wanted the elevators to move, what the passengers should do, what the architecture should look like,
+
+and what I eventually wanted to experiment with.
+
+So instead of spending most of my time manually implementing every part, I used AI heavily to help turn the design into code.
+
+That changed the speed of the project a lot.
+
+I could spend more of my time thinking about:
+
+* the simulation design
+* the physics
+* the state transitions
+* what should be separated into different modules
+* what the system should eventually allow
+* how I would test an idea
+* what problems I was actually trying to solve
+
+And then use AI to help make those ideas exist in code.
+
+That doesn't mean the code magically became mine.
+
+A generated implementation is still something I need to understand.
+
+I've had to read through the code,
+trace how the systems interact,
+test its behavior,
+find things that don't work,
+and change the implementation when the design and the code don't agree.
+
+So this project is deliberately different from my earlier coding style.
+
+The code was not the main thing I was trying to practice. The design and experimentation were.
+
+AI gave me a way to get from:
+
+> "I wonder if an elevator could work like this..."
+
+to:
+
+> "Okay, there are actually three elevators moving around on my screen. Now let's see what breaks."
+
+That difference is huge.
+
+---
+
+## The architecture
+
+The simulation is separated into different systems so that the environment itself isn't tied to the visual interface.
+
+elevator/
+├── mechanics/
+│   ├── building.py
+│   ├── clock.py
+│   ├── elevator.py
+│   ├── events.py
+│   ├── passenger.py
+│   ├── request.py
+│   ├── states.py
+│   └── statistics.py
+│
+├── settings_configs/
+│   ├── config.py
+│   ├── dispatcher.py
+│   └── traffic.py
+│
+├── simulation/
+│   ├── simulation.py
+│   └── elevator_renderer.py
+└── main.py
+
+
+The important separation is between the simulation and the renderer.
+
+The simulation knows where an elevator physically is.
+
+The renderer simply shows it.
+
+The simulation knows when a passenger is waiting.
+
+The renderer shows the passenger.
+
+The simulation controls the physics.
+
+The renderer doesn't.
+
+This means the same environment can eventually be run thousands of times without opening a window, which becomes important if I eventually want to train or benchmark agents.
+
+---
+
+## Where I want to take it
+
+There isn't really a fixed endpoint for this project yet.
+
+Some of the things I want to experiment with include:
+
+### Different dispatch strategies
+
+For example:
+
+Random
+   ↓
+Distance based
+   ↓
+Load-aware
+   ↓
+Direction aware
+   ↓
+Multi request scheduling
+   ↓
+RL
+
+
+But I don't want to assume beforehand that this is the correct progression.
+
+I want to build the baselines, run experiments, and see what the actual problem looks like.
+
+### Different traffic conditions
+
+The current traffic is random.
+
+Eventually I want to create controlled scenarios such as:
+
+* Normal traffic
+* Rush hour
+* Mostly upward traffic
+* Mostly downward traffic
+* Morning office traffic
+* Evening return traffic
+* Concentrated requests between certain floors
+* Sudden traffic spikes
+* Repeated requests from the same floor
+
+Then different dispatching strategies can be compared under the same conditions.
+
+### Benchmarking
+
+Eventually I want to be able to run many simulations and compare things like:
+
+* Average waiting time
+* Maximum waiting time
+* Total waiting time
+* Average journey time
+* Elevator utilization
+* Number of completed passengers
+* Performance under different traffic patterns
+
+At that point, the simulation stops being just something I can watch and becomes an actual experimental environment.
+
+### Reinforcement Learning
+
+This is the part I haven't figured out yet.
+
+I don't know what the final state representation should be.
+
+I don't know whether the action should be choosing an elevator, choosing a destination, scheduling stops, or something completely different.
+
+I don't know what reward formulation will make sense.
+
+And I don't want to pretend that I do.
+
+The whole reason I'm building the simulation is to give myself something concrete to investigate.
+
+Maybe the eventual RL problem will be completely different from what I currently imagine.
+
+---
+
+## Running it
+
+Install Pygame:
+
+```bash
+pip install pygame-ce
+```
+
+Then run:
+
+```bash
+python main.py
+```
+
+### Controls
+
+| Key     | Action                  |
+| ------- | ----------------------- |
+| `SPACE` | Pause / resume          |
+| `1`–`6` | Change simulation speed |
+| `R`     | Reset                   |
+| `ESC`   | Quit                    |
+
+The simulation can also be run without the renderer, allowing the environment to be used for large scale experiments later.
+
+---
+
+## The bigger point
+
+The elevator itself isn't really the interesting part for me.
+
+The interesting part is what happened before it existed.
+
+I had a completely random thought.
+
+I didn't know how to solve it.
+
+I didn't know how RL would fit into it.
+
+I didn't know what the final experiment would look like.
+
+But the idea stuck in my head, so I built the first version anyway.
+
+That's increasingly what I want the Playground to be:
+
+a place where I can take strange ideas seriously enough to build them.
+
+Some of them might turn into useful experiments.
+
+Some might completely fail.
+
+Some might reveal that the original question wasn't even the right question.
+
+And some might lead somewhere I couldn't have predicted when I started.
+
+I don't think I need to know where an idea is going before I start building it.
+
+Sometimes I just need to make it visible first.
