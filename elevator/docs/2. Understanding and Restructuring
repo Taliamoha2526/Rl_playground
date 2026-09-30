@@ -1,0 +1,251 @@
+## Getting something working is different from understanding it
+
+By the end of the first stage, I had a working elevator simulation.
+
+That was useful, but it wasn't enough.
+
+Once the code existed, I needed to be able to look at it and understand what was happening.
+
+I didn't want the project to become a black box where I could describe what I wanted and ask an AI to keep changing things for me.
+
+The whole point of the Playground is experimentation. To experiment properly, I need to understand the system I'm experimenting on.
+
+So this stage became less about adding features and more about turning the implementation into something I could reason about.
+
+---
+
+## Building a mental model
+
+The first thing I did was go through the project systematically rather than reading files randomly.
+
+This gave me a way to follow the system from the smallest pieces upward.
+
+I started with the configuration and state definitions because they describe the vocabulary of the simulation.
+
+Then came the elevator itself: its position, velocity, movement phases, doors, and passengers.
+
+After that came the objects interacting with the elevator, followed by the systems that create requests and decide where elevators should go.
+
+Finally, I looked at the simulation that coordinates everything and the renderer that displays it.
+
+The important part wasn't memorizing every function.
+
+It was understanding the flow of information.
+
+A passenger creates a request.
+
+The dispatcher decides what should handle it.
+
+The simulation applies that decision.
+
+The elevator physically moves.
+
+Events and statistics record what happened.
+
+The renderer observes the resulting state.
+
+Once I could follow that chain, the project stopped feeling like a collection of Python files and started feeling like one system.
+
+---
+
+## Separating physical reality from decisions
+
+One of the biggest things I gained from this process was a clearer distinction between three different kinds of logic:
+
+What physically happens.
+
+An elevator has a position and velocity. It accelerates and decelerates. Its doors have states. Passengers occupy space inside it.
+
+What decisions are made.
+
+Which elevator should receive a request? Which stop should be served next? Should a request wait?
+
+What coordinates the experiment.
+
+When does time advance? When are passengers generated? When are events processed? When are statistics updated?
+
+These became roughly:
+mechanics/
+    What exists and how it behaves
+
+settings_configs/
+    What can be configured or swapped
+
+simulation/
+    How the experiment runs
+
+
+That distinction was useful because it gave me a way to reason about future changes.
+
+If I want to change the physics, I should not need to rewrite the dispatcher.
+
+If I want to test another dispatcher, I should not need to change the elevator's movement model.
+
+If I want to render the simulation differently, the simulation itself should not care.
+
+That separation wasn't something I wanted simply because it is "clean code."
+
+I wanted it because it makes experiments easier.
+
+---
+
+## Restructuring the project
+
+The original implementation worked, but its structure wasn't quite how I wanted to think about the system.
+
+I reorganized it around the responsibilities I had identified during the specification stage.
+
+I also consolidated related definitions where doing so made the system easier to navigate.
+
+This wasn't a large rewrite for the sake of rewriting.
+
+It was mostly about making the structure match the mental model I had developed while studying the code.
+
+---
+
+## Understanding before changing
+
+One thing I deliberately tried not to do was change code simply because I would have written it differently.
+
+That distinction became important with the elevator physics.
+
+I went through the movement and braking logic closely enough to understand what it was doing.
+
+The kinematics were not necessarily written in the same style I would have chosen, but I had no reason to replace them.
+
+The same applied to things like braking distance and door timing.
+
+Understanding code does not mean rewriting everything until it looks like my code.
+
+Sometimes the correct conclusion is:
+
+> I understand this, and I don't need to change it.
+
+That was actually useful for me because it forced me to separate preference from problem.
+
+If something is wrong, I should fix it.
+
+If something is unfamiliar but correct, I should understand it.
+
+Those are different situations.
+
+---
+
+## Small things that surfaced during the review
+
+Once I started reading the implementation carefully, I also found smaller issues that would have been easy to miss if I had only cared about whether the program ran.
+
+None of them were dramatic bugs.
+
+But they were useful because they showed the difference between:
+
+> "The program runs."
+
+and:
+
+> "I understand what every line is actually doing."
+
+I documented these rather than quietly removing every imperfection during restructuring.
+
+The point of this playground wasn't to make every project look untouched or perfectly polished.
+
+It was to make the state of the experiment honest.
+
+---
+
+## Putting everything into one place
+
+Another small architectural decision came from thinking ahead to experimentation.
+
+I wanted to be able to compare different versions of the simulation without having to reconstruct the entire system every time.
+
+That influenced how I grouped the simulation implementations and dispatchers.
+
+If I eventually have:
+
+BaselineDispatcher
+CapacityAwareDispatcher
+RLDispatcher
+
+I want them to share the same underlying world.
+
+Otherwise, a performance difference could come from differences in the simulation rather than differences in decision making.
+
+This is the beginning of a control group mindset that becomes much more important later.
+
+The baseline isn't something I want to throw away as soon as I have a "better" idea.
+
+It is something I want to keep healthy enough to compare against.
+
+---
+
+## What I did/didn't change
+
+The restructuring wasn't about claiming ownership over every line.
+
+It was about making the system understandable enough for me to take responsibility for the decisions being made.
+
+I changed the organization where the structure didn't match the way I understood the system.
+
+I cleaned up small inconsistencies.
+
+I removed or rewrote comments once I understood what the code was actually doing.
+
+But I deliberately left working pieces alone when I couldn't justify changing their behavior.
+
+That distinction matters to the way I'm approaching AI assisted development.
+
+The goal isn't:
+
+> "AI wrote it, so I need to rewrite it."
+
+Nor is it:
+
+> "It works, so I don't need to understand it."
+
+It's somewhere in between:
+
+> Use the acceleration, then do the intellectual work required to understand and control what was produced.
+
+---
+
+## The role of AI changed here
+
+The first stage used AI mostly as an implementation accelerator.
+
+This stage used it differently.
+
+I was asking questions about the code, tracing behavior, checking assumptions, and investigating parts of the architecture that I didn't immediately understand.
+
+That meant the workflow became much more iterative:
+
+design
+   ↓
+implementation
+   ↓
+study
+   ↓
+run
+   ↓
+question
+   ↓
+change
+   ↓
+run again
+
+AI helped me move through that loop much faster, but it didn't remove the need to understand the result.
+
+In fact, having the code appear quickly made that understanding more important.
+
+The faster I could produce an implementation, the faster I could get to the interesting part:
+
+Does this actually represent the system I had in my head?
+
+That was important because my next idea was no longer just about making the elevator move differently.
+
+I wanted to change how it served multiple passengers.
+
+And that exposed something I hadn't fully appreciated yet:
+
+sometimes the problem you think you're solving lives in one component, but the architecture underneath it assumes something completely different.
+

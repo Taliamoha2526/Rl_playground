@@ -1,0 +1,244 @@
+## Where the idea started
+
+I didn't start this project with an RL algorithm in mind. I started it with an elevator.
+
+While riding one, I had a random thought: what if an elevator could actually think about where it was going?
+
+Instead of simply reacting to whoever presses a button first,
+
+what if it could consider things like distance, where other passengers are going, how busy the building is, and which requests should be handled together?
+
+I didn't have a solution to that question. I didn't even have a clear idea of how RL would fit into it.
+
+But the idea stuck with me enough that I wanted to see it exist.
+
+That is exactly the kind of idea I wanted the RL Playground to be able to handle:
+
+something that starts as a random thought,
+turns into a system that can be experimented with,
+and only later reveals whether there is actually an interesting learning problem inside it.
+
+So the first question wasn't:
+
+> How do I train an RL agent to control elevators?
+
+It was:
+
+> What would I need to build if I wanted to experiment with elevator decision making?
+
+That changed the direction of the project completely.
+
+---
+
+## Building the world before the agent
+
+For the first phase, I deliberately decided not to build RL.
+
+Before an agent can make decisions, there needs to be something for it to make decisions about.
+
+I needed elevators that could move, passengers that could appear, requests that could wait, doors that could open and close, and a building whose state changed over time.
+
+So I treated the elevator system as a simulation first.
+
+The goal was to create something solid enough that I could later plug different decision making strategies into it and compare their behavior.
+
+This also meant separating the simulation from the eventual learning problem.
+
+The elevator should not know anything about RL.
+
+The passenger generator should not know anything about the dispatcher.
+
+The renderer should only show what is happening.
+
+That gave me a few principles to work around.
+
+### Simulation first
+
+The simulation had to be able to run without the visual interface.
+
+The renderer is there so I can see what the system is doing, but the simulation itself should contain the actual world state and rules.
+
+This means I can eventually run thousands of experiments without needing to render every one of them.
+
+### Time based physics
+
+I didn't want elevators to simply jump from one floor to another every simulation tick.
+
+An elevator has velocity. It accelerates, potentially reaches a cruising speed, and needs to decelerate before reaching its destination.
+
+So movement is based on continuous position and velocity rather than treating a floor as a single unit of movement.
+
+As an example, for braking the elevator uses:
+
+$$
+d_{brake} = \frac{v^2}{2a}
+$$
+
+This gives the simulation enough physical structure for different trips to behave differently.
+
+A short trip might never reach maximum speed, while a longer trip can accelerate, cruise, and then brake.
+
+The point isn't to create a perfect physical model of a real elevator.
+
+It's to create a model that behaves consistently enough for experiments to mean something.
+
+### Replaceable decision making
+
+The dispatcher is treated separately from the physical simulation.
+
+That makes it possible to swap strategies later without rebuilding the entire simulation.
+
+The first dispatcher is intentionally simple:
+
+assign a request to the nearest available elevator, with waiting requests forming a queue when all elevators are busy.
+
+It's not supposed to be clever. It's a baseline.
+
+### Don't build RL yet
+
+This was probably the most important design decision.
+
+I didn't want to force an RL formulation onto the project just because I've swamped myself learning RL.
+
+At this point, I don't know what the best state representation should be, what the action space should look like, or even whether RL will be the most interesting way to approach the problem.
+
+So I left those questions open.
+
+The simulation comes first. If an interesting decision problem emerges from it, then I can build the learning problem around the environment rather than inventing an environment around the algorithm.
+
+---
+
+## The specification
+
+Once I knew the direction, I started defining what the simulation actually needed.
+
+The initial version would have:
+
+* 10 floors
+* 3 elevators
+* 6 passengers per elevator
+* 3 meter floor height
+* continuous elevator position
+* acceleration and deceleration
+* maximum elevator speed
+* braking distance based stopping
+* door opening, holding, and closing
+* passenger origins and destinations
+* waiting, boarding, riding, and arrival states
+* randomly generated passenger traffic
+* reproducible traffic through random seeds
+* a simple baseline dispatcher
+* waiting queues
+* simulation statistics
+* an event system for important state changes
+* a Pygame renderer
+* independent simulation and rendering clocks
+
+I also defined responsibilities before writing the implementation.
+
+For example, the elevator is responsible for physical state and movement.
+
+The dispatcher is responsible for deciding which elevator handles a request.
+
+The traffic generator creates passengers.
+
+The simulation coordinates everything.
+
+The renderer displays the current state.
+
+None of these should quietly take over another module's job.
+
+That might sound like ordinary software structure, but for this project it was part of the experiment.
+
+If I wanted to change the decision making later, I needed to know exactly where that decision making lived.
+
+---
+
+## Designing for experiments
+
+Another thing I wanted from the beginning was the ability to observe more than just whether the simulation works.
+
+An elevator system can look fine while performing terribly.
+
+So the simulation tracks things such as:
+
+* passenger waiting time
+* total journey time
+* travel time
+* maximum waiting time
+* average waiting time
+* completed passengers
+* passengers currently waiting
+* passengers currently inside elevators
+* accumulated waiting time
+* elevator state and movement
+
+These metrics give me something to measure when I eventually start comparing strategies.
+
+For example, a dispatcher might reduce average waiting time while making a small number of passengers wait much longer.
+
+Another might move more passengers overall but create congestion at certain floors.
+
+Those are experiments I can't really run if all I have is a moving elevator on a screen.
+
+---
+
+## What I expected to be difficult
+
+At this stage, I didn't know what would actually break.
+
+I expected the physical model to require some thought, especially around acceleration, braking, and stopping precisely at a floor.
+
+I also expected the architecture to change once I started trying to implement more complicated dispatching behavior.
+
+But I deliberately didn't try to solve every future problem in advance.
+
+There was no point designing a perfect RL environment before I knew what the simulation would actually look like.
+
+The specification was therefore detailed enough to give me a direction, but open enough to let the experiment change it.
+
+---
+
+## Turning the specification into code
+
+Only after the design was clear did I move into implementation.
+
+This is also where my development workflow for this project became different from some of my earlier projects.
+
+I used AI heavily to turn the specification into an initial implementation.
+
+That let me move from a written idea to a functioning simulation much faster than if I had manually written every part myself.
+
+But the important part for me was what happened after the code existed.
+
+I had to read it, understand the relationships between the modules, run it, inspect its behavior, find things that didn't make sense, and eventually restructure parts of it.
+
+The AI gave me something concrete to work with.
+
+Instead of spending most of the early stage typing out implementation details, I could spend more of my time asking:
+
+* Does this architecture actually represent the system I designed?
+* Does the physics behave the way I intended?
+* Where should this responsibility live?
+* What assumptions are hidden in the implementation?
+* What happens when I change this part?
+* What can I actually measure?
+
+That became an important part of the experiment itself.
+
+The goal wasn't to produce code as quickly as possible.
+
+It was to get from "I wonder if an elevator could work like this" to a system that I could actually experiment on.
+
+---
+
+## What comes next
+
+This describes what I wanted the system to be before I started digging deeply into the implementation.
+
+The next step was therefore not immediately adding more features.
+
+It was understanding what I had actually built.
+
+Getting a system to run is one thing. Being able to trace its state, understand its architecture, and confidently change it is another.
+
