@@ -5,17 +5,18 @@ Its job is orchestration between modules and components.
 """
 
 from collections import deque
-from typing import Optional
 from elevator.mechanics.building import Building
 from elevator.mechanics.clock import SimulationClock
 from elevator.settings_configs.config import SimulationConfig
 from elevator.settings_configs.dispatcher import Dispatcher, NearestAvailableDispatcher
 from elevator.mechanics.events import EventBus, EventType, SimulationEvent
 from elevator.mechanics.passenger import Passenger
+from elevator.mechanics.routing import *
 from elevator.mechanics.request import ElevatorRequest
 from elevator.mechanics.states import ElevatorState, RequestStatus
 from elevator.mechanics.statistics import Statistics
 from elevator.settings_configs.traffic import PassengerGenerator, RandomTrafficGenerator
+from elevator.settings_configs.dispatcher import CapacityAwareDispatcher
 
 class ElevatorSimulation:
     """Top level simulation orchestrator.
@@ -71,7 +72,7 @@ class ElevatorSimulation:
 
             self.events.emit(SimulationEvent(simulation_time=sim_time, event_type=EventType.PASSENGER_CREATED,
                     data={"passenger_id": passenger.id, "origin_floor": passenger.origin_floor, "destination_floor": passenger.destination_floor,},
-                    message=(f"Passenger {passenger.id} requested " f"F{passenger.origin_floor + 1} -> F{passenger.destination_floor + 1}")))
+                    message=f"Passenger {passenger.id} requested " f"F{passenger.origin_floor + 1} -> F{passenger.destination_floor + 1}"))
 
     def _assign_pending_requests(self) -> None:
         still_pending: deque[ElevatorRequest] = deque()
@@ -209,3 +210,139 @@ class ElevatorSimulation:
         self._elevator_request.clear()
         self._elevator_stage.clear()
 
+
+class CapacityAwareSimulation(ElevatorSimulation):
+    """ElevatorSimulation variant with multi stop, capacity aware routing."""
+
+    def __init__(self, config: SimulationConfig | None = None, dispatcher: Dispatcher | None = None, traffic_generator: PassengerGenerator | None = None):
+        super().__init__(config=config, dispatcher=dispatcher or CapacityAwareDispatcher(), traffic_generator=traffic_generator)
+        self._routes: dict[int, list[Stop]] = {e.id: [] for e in self.building.elevators}
+        self._request_by_passenger: dict[int, ElevatorRequest] = {}
+
+    def reset(self) -> None:
+        super().reset()
+        self._routes = {e.id: [] for e in self.building.elevators}
+        self._request_by_passenger.clear()
+
+    # Assignment based on merging to an existing route / creating a new one when needed
+    def _assign_pending_requests(self) -> None:
+        still_pending: deque[ElevatorRequest] = deque()
+
+        while self._pending_requests:
+            request = self._pending_requests.popleft()
+            if request.status != RequestStatus.WAITING:
+                continue
+
+            elevator_id = self.dispatcher.assign(request, self.building.elevators, self._routes)
+            if elevator_id is None:
+                still_pending.append(request)
+                continue
+
+            self._add_stops(elevator_id, request)
+
+        self._pending_requests = still_pending
+
+    def _add_stops(self, elevator_id: int, request: ElevatorRequest) -> None:
+        elevator = self._get_elevator(elevator_id)
+        request.assign(elevator_id)
+        self._request_by_passenger[request.passenger_id] = request
+
+        route = self._routes[elevator_id]
+        direction = 1 if request.destination_floor > request.origin_floor else -1
+
+        self._insert_stop(route, request.origin_floor, direction, boarding_id=request.passenger_id)
+        self._insert_stop(route, request.destination_floor, direction, alighting_id=request.passenger_id)
+
+        if elevator.target_floor is None or route[0].floor != elevator.target_floor:
+            elevator.assign_target(route[0].floor)
+
+        self.events.emit(SimulationEvent(simulation_time=self.clock.simulation_time,event_type=EventType.ELEVATOR_ASSIGNED,
+                data={"elevator_id": elevator_id, "passenger_id": request.passenger_id},
+                message=f"Elevator {elevator_id} assigned to passenger {request.passenger_id}"))
+
+    @staticmethod
+    def _insert_stop(route: list[Stop], floor: int, direction: int, boarding_id: int | None = None, alighting_id: int | None = None) -> None:
+        """Insert (or merge into) a stop, keeping the route sorted by direction."""
+        for stop in route:
+            if stop.floor == floor:
+                if boarding_id is not None:
+                    stop.boarding.append(boarding_id)
+                if alighting_id is not None:
+                    stop.alighting.append(alighting_id)
+                return
+
+        new_stop = Stop(floor=floor,boarding=[boarding_id] if boarding_id is not None else [],
+            alighting=[alighting_id] if alighting_id is not None else [])
+
+        for i, stop in enumerate(route):
+            if direction == 1 and stop.floor > floor:
+                route.insert(i, new_stop)
+                return
+            if direction == -1 and stop.floor < floor:
+                route.insert(i, new_stop)
+                return
+
+        route.append(new_stop)
+
+   # Elevator transitions
+    def _handle_arrival(self, elevator) -> None:
+        route = self._routes.get(elevator.id, [])
+        if route:
+            self.events.emit(SimulationEvent(simulation_time=self.clock.simulation_time, event_type=EventType.ELEVATOR_ARRIVED,
+                    data={"elevator_id": elevator.id, "floor": route[0].floor},
+                    message=f"Elevator {elevator.id} arrived at F{route[0].floor + 1}"))
+        elevator.open_doors()
+
+    def _handle_doors_open(self, elevator) -> None:
+        route = self._routes.get(elevator.id, [])
+        if not route:
+            return
+
+        stop = route[0]
+        sim_time = self.clock.simulation_time
+
+        # Alight first so departing passengers free up capacity before new passengers board at the same stop.
+        for passenger_id in list(stop.alighting):
+            passenger = self.passengers.get(passenger_id)
+            if passenger is None:
+                continue
+            elevator.remove_passenger(passenger)
+            passenger.arrive(sim_time)
+            self.stats.record_completion(passenger)
+            request = self._request_by_passenger.get(passenger_id)
+            if request:
+                request.mark_completed()
+            self.events.emit(
+                SimulationEvent(simulation_time=sim_time, event_type=EventType.PASSENGER_DROPPED_OFF,
+                    data={"elevator_id": elevator.id, "passenger_id": passenger_id},
+                    message=f"Passenger {passenger_id} arrived at F{passenger.destination_floor + 1}"))
+
+        for passenger_id in list(stop.boarding):
+            passenger = self.passengers.get(passenger_id)
+            if passenger is None:
+                continue
+            if not elevator.board(passenger):
+                continue
+            self.building.remove_waiting_passenger(passenger)
+            passenger.board(sim_time)
+            self.stats.record_pickup(passenger)
+            request = self._request_by_passenger.get(passenger_id)
+            if request:
+                request.mark_picked_up()
+            self.events.emit(
+                SimulationEvent(simulation_time=sim_time, event_type=EventType.PASSENGER_BOARDED,
+                    data={"elevator_id": elevator.id, "passenger_id": passenger_id},
+                    message=f"Passenger {passenger_id} boarded elevator {elevator.id}"))
+
+    def _handle_doors_closed(self, elevator) -> None:
+        route = self._routes.get(elevator.id, [])
+        if not route:
+            return
+
+        route.pop(0)
+        if route:
+            elevator.assign_target(route[0].floor)
+
+    def route_snapshot(self) -> dict[int, list[tuple[int, int, int]]]:
+        """Return each elevator's remaining route as (floor, num_boarding, num_alighting)."""
+        return {elevator_id: [(s.floor, len(s.boarding), len(s.alighting)) for s in stops] for elevator_id, stops in self._routes.items()}
