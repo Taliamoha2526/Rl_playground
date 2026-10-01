@@ -1,0 +1,287 @@
+#Bugs, Debugging and Benchmarking
+
+## It worked. And then it didn't.
+
+The capacity aware simulation was finally doing what I wanted.
+
+Elevators could have routes, pick up additional passengers, and make better use of their available capacity.
+
+Then I left it running for a while.
+
+At first, everything looked fine.
+
+And then the elevators started freezing.
+
+Not immediately. Not in an obvious way.
+
+The simulation could run for a few rounds, passengers would move around, and then eventually the cars would stop responding properly.
+
+Waiting passengers would remain on the floors while empty elevators sat around doing nothing useful.
+
+This was the kind of failure I wanted the Playground to produce.
+
+Not because bugs are fun, but because a simulation that runs for thirty seconds isn't very interesting.
+
+A simulation that runs for long enough to expose assumptions is.
+
+---
+
+## Why I could actually investigate it
+
+The important part was that I wasn't approaching the failure as a black box.
+
+By this point, I had spent a lot of time reading through the implementation and sketching how the modules interacted.
+
+I knew exactly where:
+
+* elevator movement was handled
+* requests were created
+* dispatch decisions were made
+* routes were represented
+* passenger state changed
+* simulation events were processed
+* statistics were collected
+
+So when I saw an elevator freeze, I could reason backwards from the behavior.
+
+If the elevator was physically capable of moving but wasn't receiving a useful destination, that pointed toward routing or assignment.
+
+If passengers appeared to be assigned but never boarded, I could look at the interaction between request state, route execution, and passenger handling.
+
+The failure itself gave me a clue about which layer was probably responsible.
+
+That was one of the clearest benefits of the previous stage.
+
+Understanding the architecture made debugging much faster.
+
+I didn't need to inspect every line of the project every time something went wrong.
+
+I could start with the part of the system whose responsibilities matched the symptom.
+
+---
+
+## Start with the symptom, not the fix
+
+My first hypothesis was that the capacity aware dispatcher was producing bad assignments.
+
+That seemed reasonable.
+
+The new behavior was the thing that had just been added, and the failure appeared after introducing multi passenger routing.
+
+Maybe an elevator was being marked as full when it wasn't.
+
+Maybe a request was being assigned to an elevator that could no longer reach it.
+
+Maybe the route was becoming inconsistent.
+
+Instead of immediately changing the dispatcher, I wanted to reproduce the problem and narrow down where the failure actually happened.
+
+---
+
+## Reproducing the failure
+
+The first useful step was reducing the problem.
+
+Rather than trying to understand everything happening in a busy simulation, I wanted a smaller, deterministic scenario that could produce the same failure.
+
+Reproducibility mattered here.
+
+If the simulation uses random passenger traffic, a bug can appear once and then disappear on the next run simply because the passengers arrived differently.
+
+That makes debugging much harder.
+
+Using controlled seeds meant I could say:
+
+> This sequence of passengers causes the failure.
+
+Then I could run that same sequence again after making a change.
+
+That made the debugging process much more like an experiment.
+
+same initial conditions
+        ↓
+same traffic
+        ↓
+same failure
+        ↓
+change one thing
+        ↓
+run again
+        ↓
+compare
+
+Without reproducibility, it is difficult to know whether a fix actually fixed the problem or whether the randomness behind it simply changed.
+
+---
+## From debugging to benchmarking
+
+Once the obvious failures were fixed, the next question became more interesting.
+
+It was no longer:
+
+Does the simulation work?
+
+It became:
+
+What does each strategy actually do under different conditions?
+
+That is where benchmarking comes in.
+
+I don't want to compare two dispatchers using one random run and declare one of them better.
+
+The environment itself can change dramatically depending on the traffic.
+
+A quiet building is a very different problem from a building where passengers are constantly arriving.
+
+So I want to eventually run controlled experiments across different traffic conditions.
+
+For example:
+
+arrival rate
+    ↓
+low / high
+
+traffic pattern
+    ↓
+normal / concentrated / rush hour / directional
+
+dispatcher
+    ↓
+baseline / capacity aware / future strategies
+
+Then I can observe how performance changes.
+
+## Reproducibility is part of fairness
+
+The same principle that helped debug the bugs becomes important for benchmarking.
+
+If I compare two strategies, they should experience the same conditions.
+
+The dispatcher should be the variable that changes.
+
+This doesn't make an experiment perfectly representative of the real world.
+
+But it makes the comparison much more meaningful.
+
+Instead of asking:
+
+"Which run looked better?"
+
+I can ask:
+
+"When both strategies faced the same conditions, how did their behavior differ?"
+
+What I actually want to measure
+
+There isn't one number that completely describes an elevator system.
+
+So the benchmark needs to look at several dimensions.
+
+A strategy might work extremely well under light traffic but degrade sharply once demand increases.
+
+Another might maintain reasonable throughput but cause certain passengers to wait much longer.
+
+Those differences are much more useful to study than simply saying that one dispatcher is better.
+
+Understanding constraints, not chasing one winner
+
+This is also where I want the project to go beyond comparing algorithms.
+
+Different strategies impose different constraints.
+
+A strategy that prioritizes efficiency might create longer waits for certain passengers.
+
+A strategy that aggressively groups passengers might reduce the number of trips but increase route complexity.
+
+A strategy that tries to serve everyone immediately might create unnecessary movement.
+
+A strategy that waits for better grouping opportunities might improve overall efficiency while making some individual passengers wait longer.
+
+I don't want the simulation to simply produce a leaderboard.
+
+I want it to help reveal what each strategy gives up in order to achieve something else.
+
+That is a much more interesting question to me.
+
+## Towards more realistic scenarios
+
+The current traffic generator is intentionally simple.
+
+That's useful for getting the system working, but real buildings don't produce perfectly uniform random passenger traffic.
+
+Eventually I want to introduce controlled scenarios such as:
+
+low traffic
+normal traffic
+rush hour
+morning upward traffic
+evening downward traffic
+concentrated floor demand
+mixed directional traffic
+increasingly overloaded conditions
+
+The purpose isn't to perfectly simulate every real building.
+
+It's to create different environments in which the assumptions of a strategy become visible.
+
+If a strategy performs well under one traffic pattern and poorly under another, that's useful information.
+
+It tells me something about the conditions under which the strategy makes sense.
+
+## Where RL might eventually fit
+
+I still don't have a final RL formulation for this.
+
+And I'm okay with that.
+
+The more I work on the simulation, the more I think that forcing an RL agent into it too early would have missed the interesting part.
+
+Right now I have a world in which decisions matter.
+
+Only after understanding that space better does it make sense to ask whether a learned policy could discover something that my manually designed strategies cannot.
+
+The eventual RL problem might involve deciding which requests to serve, how to construct routes, when to redirect an elevator, or some combination of these.
+
+But I don't need to decide that yet.
+
+The environment is becoming useful before the agent exists.
+
+## The bigger direction
+
+I don't want the elevator simulation to end with:
+
+"I built an elevator dispatcher."
+
+I want it to become a way of reasoning about a real world system.
+
+The interesting question isn't simply how to make elevators move faster.
+
+It's how different ways of making decisions change the behavior of the entire system.
+
+## Why the Playground exists
+
+This is also why the debugging process mattered so much.
+
+The elevator freezing was frustrating, but it was also evidence that the project had reached the point where I could actually investigate a system rather than just write code.
+
+I had an idea.
+
+I turned it into a world.
+
+I built a strategy.
+
+The strategy broke the world.
+
+I traced the failure back through the system, fixed it, and then started asking how to measure the behavior properly.
+
+The goal isn't to find a perfect answer immediately.
+
+It's to build systems that make difficult questions easier to see and reason about.
+
+And eventually, I want the elevator simulation to get close to that point:
+
+a place where different strategies can be tested under meaningful constraints;
+
+where their tradeoffs become visible, and where the simulation can help someone reason about how better solutions might actually be designed.
+
+That is a much bigger goal than the idea I started with.

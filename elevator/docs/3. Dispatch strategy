@@ -1,0 +1,304 @@
+# Capacity Aware Dispatcher Design
+
+## I wanted to change the behavior, not replace the experiment
+
+Once I had a working baseline, I started thinking about what the elevators were actually doing.
+
+The baseline dispatcher was intentionally simple: one request gets assigned to an available elevator, the elevator handles it, and then becomes available again.
+
+That works as a starting point.
+
+But there's something hard to ignore.
+
+An elevator has a capacity of six people, yet the baseline was effectively treating every trip as if it were meant for one person.
+
+If an elevator picked up one passenger going from floor 2 to floor 8, the other five spaces were still empty.
+
+A passenger waiting on floor 5 might even be heading in roughly the same direction, but the elevator had no way to consider serving them along the way.
+
+Instead of thinking about each request as an isolated trip, could an elevator pick up additional passengers along its route, as long as there was still room?
+
+This became my first attempt at making the simulation behave more like a real multi passenger elevator system.
+
+---
+
+## Keeping the baseline
+
+I didn't want to modify the original dispatcher until it became something completely different.
+
+The baseline was useful.
+
+It gave me a simple reference point that I could eventually compare against.
+
+So I treated it as a control rather than something that needed to be replaced.
+
+The new dispatcher would have to answer a different question:
+
+> If the elevator already has somewhere to go, can we use that route to serve additional requests?
+
+That meant I needed to preserve the original system while adding another strategy around it.
+
+This distinction mattered because I wasn't just trying to make the elevator better.
+
+I wanted to create another experiment.
+
+If the capacity aware version eventually performs differently, I want to be able to ask why.
+
+---
+
+## The first architectural problem
+
+At first, the problem sounded like a dispatcher problem.
+
+The dispatcher decides which elevator receives a request, so I naturally started there.
+
+But the more I looked at the existing system, the more obvious it became that the dispatcher alone couldn't accomplish what I wanted.
+
+The simulation engine had an assumption built into it:
+
+one elevator → one active request → one destination.
+
+Even if the dispatcher decided that an elevator should serve another passenger along the way, the rest of the simulation wasn't structured to represent that behavior.
+
+This was an important discovery.
+
+The problem wasn't simply:
+
+> "How do I write a smarter dispatcher?"
+
+It was:
+
+> "What does the rest of the system need to understand before a smarter dispatcher can actually exist?"
+
+That changed the design.
+
+---
+
+## Thinking in routes instead of targets
+
+The baseline could largely think in terms of a target:
+
+Elevator → Floor 8
+
+The capacity aware version needed something more like:
+
+Elevator → Floor 5 → Floor 8 → Floor 10
+
+The elevator needed a sequence of stops.
+
+I introduced a route made up of explicit Stop objects so that an elevator could have several destinations associated with its current trip.
+
+This also made the idea of a directional sweep useful.
+
+Instead of constantly reconsidering every elevator from scratch, an elevator could continue in its current direction and potentially pick up passengers whose requests were ahead of it.
+
+This is similar in spirit to SCAN/LOOK style movement: continue serving useful stops in one direction rather than immediately reversing whenever another request appears.
+
+I wasn't trying to reproduce a production elevator controller.
+
+I was looking for a simple routing model that captured the behavior I wanted to experiment with.
+
+---
+
+## When can a new passenger join the route?
+
+Once elevators could have routes, the next question was deciding when a waiting request could be merged into one.
+
+I wanted the rules to be deliberately conservative.
+
+A waiting passenger could be considered for an elevator when:
+
+* the elevator was already moving in a compatible direction
+* the passenger's pickup floor was ahead of the elevator
+* the elevator still had enough capacity
+* adding the pickup would make sense within the current route
+
+For passengers who didn't fit those conditions, the request could wait for another opportunity or be assigned elsewhere.
+
+This wasn't intended to be the perfect elevator algorithm.
+
+I wanted something understandable enough that I could later measure its behavior and improve it.
+
+---
+
+## Capacity is more than counting people inside
+
+Another design problem appeared when I thought about capacity.
+
+It isn't enough to ask:
+
+> How many passengers are inside the elevator right now?
+
+Suppose an elevator currently has four passengers inside and has already committed to picking up three more people along its route.
+
+At the moment, only four people are physically inside.
+
+But treating the elevator as having two remaining spaces would allow the dispatcher to promise more passengers than it can actually carry.
+
+So the capacity check needed to consider both:
+
+current riders + pending pickups
+
+
+That made capacity a property of the planned route, not just the elevator's current physical state.
+
+I chose a conservative approach here.
+
+If the elevator has already effectively reserved its remaining capacity for passengers on the route, I don't want another request to assume that space is available.
+
+It may mean that some opportunities are missed.
+
+That's acceptable for this version.
+
+I would rather have a simple rule I can reason about than a complicated optimization whose behavior I can't explain yet.
+
+---
+
+## Reusing elevators that are already moving
+
+This was the part of the idea I was most interested in.
+
+The baseline asks:
+
+> Which elevator is available for this request?
+
+The capacity aware version asks something slightly different:
+
+> Can an elevator that is already moving also serve this request?
+
+That changes the meaning of an available elevator.
+
+An elevator doesn't necessarily need to be idle to be useful.
+
+It might already be travelling through the exact floor where another passenger is waiting.
+
+That means the dispatcher can make use of work that is already happening instead of treating every new request as a completely separate job.
+
+This is where the simulation started becoming more interesting to me.
+
+The goal wasn't simply to reduce the number of trips.
+
+It was to make the system reason about shared movement.
+
+---
+
+## The new simulation layer
+
+Once the dispatcher could produce multi stop routes, the simulation engine had to understand them.
+
+This was the part I initially underestimated.
+
+The dispatcher could say:
+
+Elevator 1:
+    pick up A
+    pick up B
+    drop off A
+    pick up C
+    drop off B
+    drop off C
+
+But the simulation needed to know when each of those things actually happened.
+
+A request being added to a route does not mean a passenger has boarded.
+
+A passenger might still be waiting on the floor.
+
+That meant the simulation had to distinguish between:
+
+* a planned stop
+* a pickup
+* a passenger actually boarding
+* a passenger being carried
+* a drop off
+* a completed request
+
+This is why the capacity aware version couldn't simply be another few lines inside the dispatcher.
+
+The behavior required a different execution model.
+
+---
+
+## Keeping the experiment contained
+
+I also wanted to make this change without rewriting the existing implementation.
+
+So I treated the capacity aware system as an extension around the baseline architecture rather than editing the original code everywhere.
+
+That constraint was useful.
+
+It forced me to ask:
+
+> What does the new behavior actually require?
+
+rather than:
+
+> How can I modify the old code until it happens to work?
+
+The result was a separate capacity aware simulation and dispatcher that could operate alongside the original system.
+
+That gave me two things I wanted:
+
+1. the baseline remained intact
+2. the new behavior could be developed independently
+
+It also made the comparison much cleaner.
+
+---
+
+## Some limitations were intentional
+
+The first version was not meant to solve every possible routing problem.
+
+For example, I kept the routing fairly conservative.
+
+An elevator would generally commit to a directional sweep rather than constantly reversing direction.
+
+Requests that arrived too late to fit naturally into the current pass might have to wait for another pass.
+
+There are also situations where a more sophisticated controller could make a better choice than my current rules.
+
+That's fine.
+
+At this stage, I'm more interested in having a clear strategy that I can test than in trying to produce the final elevator algorithm.
+
+The whole point of the Playground is that the first version doesn't have to be the final answer.
+
+---
+
+## What this experiment changed for me
+
+The interesting part of this stage wasn't just adding capacity.
+
+It changed how I thought about the system.
+
+I started with what looked like a local problem:
+
+> "Make the dispatcher smarter."
+
+But the actual problem crossed several layers.
+
+Changing one behavior exposed assumptions everywhere else.
+
+That is something I expect to keep happening throughout the Playground.
+
+A system can have all the right components and still be designed around assumptions that prevent a new idea from working.
+
+The only way to discover those assumptions is to try to push the system somewhere it wasn't originally designed to go.
+
+---
+
+## Where this leaves the experiment
+
+At this point, I had two different ways of handling elevator requests.
+
+One treated requests mostly as individual trips.
+
+The other tried to reuse existing elevator movement and combine compatible requests into shared routes.
+
+Now I had something worth testing.
+
+But before I could compare the two properly, I needed to know whether either implementation was actually behaving correctly.
+
+And that turned out to be a much bigger problem than I expected.
+
