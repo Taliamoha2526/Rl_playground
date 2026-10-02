@@ -230,10 +230,75 @@ The Permutation Puzzle became less about simply making an agent solve a game and
 Its full development process is documented inside the module.
 
 ---
+# Current Project: Elevator Experiment
+
+The third major environment started from a random thought:
+
+> Elevators would probably be faster if they could see where people are going, rather than simply responding to whoever calls them first.
+
+I didn't really know how I would turn that idea into an experiment.
+
+So instead of starting with RL, I started by trying to build the elevator system itself.
+
+The environment models a multi floor building with multiple elevators and passengers making requests.
+
+People appear on floors, call elevators, enter when one arrives, and travel toward their destination.
+
+The elevators themselves are simulated with continuous movement rather than simply jumping from floor to floor.
+
+They accelerate, reach cruising speed, slow down before their target floor, open their doors, and continue serving passengers.
+
+The simulation can also run without the visual interface, which makes it possible to separate the underlying environment from how it is displayed.
+
+This immediately introduced a different kind of problem from the previous two environments.
+
+Instead of asking:
+
+"How should an agent solve this puzzle?"
+
+I was asking:
+
+"How should I model this system so that I can eventually study how different decisions affect it?"
+
+That led me into questions about:
+
+* simulation time;
+* continuous movement and stopping behaviour;
+* passenger lifecycle;
+* elevator capacity;
+* request queues;
+* traffic generation;
+* dispatcher decisions;
+* wait time versus journey time;
+* system throughput;
+* reproducibility;
+* and how to fairly compare different strategies.
+
+The first version therefore focuses on creating a reliable experimental environment rather than trying to make an RL agent solve it immediately.
+
+A basic dispatcher can assign elevators based on factors such as their availability and distance from pending requests, providing a baseline against which more deliberate strategies can eventually be tested.
+
+The simulation also supports controlled, seedable traffic, making it possible to reproduce the same situations.
+
+That became important because a strategy that appears better on one random simulation doesn't necessarily mean it is actually better.
+
+The longer term direction is to generate different traffic conditions normal usage, rush hour, concentrated demand, directional traffic, and overloaded situations and benchmark how different dispatch strategies behave under each one.
+
+Rather than looking at a single reward value, I want to investigate things such as passenger waiting time, journey time, throughput, elevator utilization, and the trade offs between them.
+
+The interesting part of this environment is that I still don't know whether RL is actually the right solution.
+
+That is deliberate.
+
+The goal at this stage is to understand the system well enough that, if an intelligent agent is introduced later, I can reason about what it is learning, what information it should receive, and whether its behaviour is actually improving the system.
+
+The Elevator Experiment is therefore a step away from isolated puzzle environments and toward larger simulations where the challenge is not only designing an agent, but designing the world in which its decisions matter.
+
+Its development process is documented inside the module.
+
+---
 
 ## Where this repository is going
-
-The Guessing Game and Permutation Puzzle are only the beginning.
 
 I want this playground to grow alongside my understanding of Reinforcement Learning.
 

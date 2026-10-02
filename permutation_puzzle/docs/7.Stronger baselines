@@ -1,0 +1,179 @@
+# Knuth Style Solver As a Stronger Baseline
+
+After building and testing the heuristic agents, I started looking at the problem differently.
+
+My first approaches were based mostly on my own intuition about how the puzzle should be solved.
+
+I focused on remembering previous guesses, checking whether new candidates were consistent with the feedback.
+
+Using that knowledge to make local changes to promising guesses, and eventually combining these ideas with some information based selection.
+
+That was useful, but it also meant I was mostly asking:
+
+> “How can I make my current strategy better?”
+
+I wanted to step back and ask a different question:
+
+> “What does a strong solution to this type of problem actually look like?”
+
+## Looking Beyond My Own Heuristics
+
+This led me to Mastermind and eventually to Knuth's approach to solving it.
+
+The permutation puzzle I built is essentially a black peg style Mastermind problem:
+
+the hidden answer is a permutation, guesses are permutations, and the only feedback is the number of positions that are correct.
+
+That gave me something I didn't have before: a more principled reference for what can be achieved without reinforcement learning.
+
+Instead of continuing to patch my existing heuristics, I decided to implement a Knuth style solver and use it as another benchmark.
+
+## A Different Way of Thinking About the Puzzle
+
+My original agents were largely built around ideas I developed while experimenting with the environment.
+
+The Systematic Agent remembered previous guesses and used consistency checks:
+
+* Keep the history of guesses and scores.
+* Generate a candidate.
+* Check it against all previous feedback.
+* Keep it only if it remains consistent.
+
+The Logic Agent went further by staying around the best known guess and exploring local changes.
+
+The Hybrid Agent tried to combine these ideas with candidate selection based on information diversity.
+
+These approaches were useful because they came from actually interacting with the problem.
+
+But they also reflected my limited understanding of the underlying search problem.
+
+The Knuth style approach gave me a different perspective.
+
+Rather than mainly asking whether a candidate is consistent with what I already know,
+
+it considers how a guess can divide the remaining possibilities based on the feedback it could produce.
+
+That changes the purpose of a guess.
+
+It isn't only about finding a candidate that could be the answer.
+
+It can also be about choosing a guess that tells us the most useful information about the remaining search space.
+
+That distinction was important for me.
+
+## The Benchmark Changed
+
+Once I implemented the solver, I added it to the same simulation and benchmarking setup used for the other agents.
+
+At the moment, the Knuth style solver is sitting at the top of the benchmark.
+
+This isn't based on a single lucky run.
+
+Because the puzzle can be simulated repeatedly, I can run multiple episodes and observe how the different strategies behave across the same kind of environment.
+
+That makes the benchmark much more useful than simply seeing one agent solve the puzzle.
+
+I can actually watch the difference between strategies emerge:
+
+* how quickly they reduce the search space,
+* how consistently they solve,
+* how their behavior changes as the puzzle gets larger,
+* and where the weaker heuristics start struggling.
+
+The important result for me isn't simply that the Knuth style solver is currently the strongest.
+
+It's that I now have a much better reference point for the RL aspect.
+
+## What This Taught Me About My Earlier Approaches
+
+Looking back, my consistency based approaches were not wrong.
+
+They were just solving a narrower problem.
+
+Checking whether a candidate is consistent with every previous observation is useful because it eliminates impossible states.
+
+But once a large number of possibilities remain, simply knowing what is possible isn't enough.
+
+The next question becomes:
+
+Which action should I take to learn the most from the next observation?
+
+That is where the information gain perspective becomes much more important.
+
+This also helped me understand why some of my earlier ideas became increasingly complicated as the puzzle scaled.
+
+I was trying to improve the behavior of the search without fully understanding the structure of the information available to the solver.
+
+Finding a stronger algorithm gave me a way to separate those two things.
+
+I can now compare my own ideas against a more principled strategy instead of assuming that more heuristics automatically means better search.
+
+## The Bigger Lesson
+
+This was probably the most useful part of implementing the Knuth style solver.
+
+I started this project knowing some reinforcement learning theory and having some intuition about search and games.
+
+Then, while trying to make the puzzle work, I ended up learning about:
+
+* constraint satisfaction,
+* search space representation,
+* global consistency,
+* information gain,
+* Mastermind strategies,
+* minimax style candidate selection,
+* and the relationship between observations and future decisions.
+
+Some of these topics weren't things I originally planned to study.
+
+They appeared because the problem forced me to look for them.
+
+That is becoming a recurring pattern in this playground.
+
+I don't necessarily start with the complete set of knowledge needed to solve a problem.
+
+I start with what I understand, build something, find where my understanding breaks down, and then learn whatever is necessary to investigate that gap.
+
+Sometimes that means going into a topic that doesn't seem directly related to RL at first.
+
+But those detours can change how I understand the original problem.
+
+## Why This Matters for the RL Version
+
+This also changes how I want to approach the reinforcement learning side of the puzzle.
+
+I don't want the RL agent to simply be another complicated heuristic and then compare it against poorly understood baselines.
+
+The Knuth style solver gives me something concrete to learn from.
+
+I can study what information the solver uses, what makes its decisions effective, and which parts of that reasoning are explicit in the algorithm.
+
+Then I can return to the RL environment and ask a much better question:
+
+> Can an agent learn useful decision making behavior from the same observations, rather than having the search strategy explicitly programmed into it?
+
+That is much closer to what I actually want to investigate.
+
+The goal isn't necessarily to immediately beat the Knuth style solver.
+
+The goal is to understand what the RL formulation is learning, what it can discover on its own, and what information it actually needs to make good decisions.
+
+## Next
+
+With the heuristic side now much better understood and a strong baseline established, the next stage is to properly work through the RL experiment.
+
+That means going back to the environment, observation design, action space, reward, training setup, and evaluation, and making sure I actually understand what I am asking the agent to learn.
+
+For me, this is where the project becomes much more interesting.
+
+I started with a small thought from a game I enjoyed playing with friends.
+
+I built the first strategies I could think of.
+
+They failed in unexpected ways.
+
+I learned why.
+
+Then I found algorithms and ideas I didn't know I needed.
+
+Now I have a stronger solver sitting above my original approaches, and a much clearer idea of what I want the RL agent to try to learn.
